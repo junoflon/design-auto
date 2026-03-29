@@ -143,7 +143,7 @@
     /* ═══════════════════════════════════════════════════ */
     /* DASHBOARD CARDS                                    */
     /* ═══════════════════════════════════════════════════ */
-    .type-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:52px;perspective:800px;}
+    .type-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:52px;perspective:800px;}
 
     .type-card{
       background:var(--white);border-radius:var(--r-2xl);
@@ -716,6 +716,10 @@
     .preview-frame.detail-mode{
       width:380px;height:520px;border-radius:var(--r-xl);
     }
+    .preview-frame.thumb-mode{
+      width:520px;height:293px;border-radius:var(--r-xl);
+      box-shadow:0 20px 60px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.06);
+    }
     .detail-scroll-wrap{
       width:100%;height:100%;overflow-y:auto;overflow-x:hidden;
     }
@@ -1202,6 +1206,25 @@
               </div>
             </div>
           </div>
+          <div class="type-card" onclick="goToEditor('thumbnail')">
+            <div class="tc-preview">
+              <div class="tc-preview-bg" style="background:linear-gradient(135deg,#FEF3C7,#FDE68A);"></div>
+              <div class="tc-preview-content">
+                <div style="font-size:11px;color:#D97706;font-weight:700;font-family:'Outfit';letter-spacing:.05em;">THUMB</div>
+                <div style="font-size:36px;margin:4px 0;">🎬</div>
+                <div style="font-size:9px;color:var(--s400);font-family:'Outfit';">1280×720</div>
+              </div>
+            </div>
+            <div class="tc-body">
+              <div class="tc-title">썸네일</div>
+              <div class="tc-desc">유튜브, 블로그 썸네일을 채널 스타일에 맞춰 생성해요.</div>
+              <div class="tc-presets">
+                <span class="preset-tag">임팩트형</span>
+                <span class="preset-tag">미니멀형</span>
+                <span class="preset-tag">브이로그형</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="recent-header">
@@ -1330,6 +1353,79 @@
           <div class="editor-section" data-editor="package" id="brand-selector-pkg">
             <div class="es-title">브랜드 선택</div>
             <div class="brand-chip-selector" id="brandChipsPkg"></div>
+          </div>
+
+          <!-- ═══ BRAND SELECTOR: Thumbnail ═══ -->
+          <div class="editor-section" data-editor="thumbnail" id="brand-selector-thumb">
+            <div class="es-title">브랜드 선택</div>
+            <div class="brand-chip-selector" id="brandChipsThumb"></div>
+          </div>
+
+          <!-- ═══ PRESETS: Thumbnail ═══ -->
+          <div class="editor-section" data-editor="thumbnail" id="presets-thumb">
+            <div class="es-title">썸네일 스타일</div>
+            <div class="preset-grid">
+              <div class="preset-item selected" onclick="selectPreset(this)"><div class="pi-icon">💥</div><div class="pi-name">임팩트형</div></div>
+              <div class="preset-item" onclick="selectPreset(this)"><div class="pi-icon">✨</div><div class="pi-name">미니멀형</div></div>
+              <div class="preset-item" onclick="selectPreset(this)"><div class="pi-icon">📹</div><div class="pi-name">브이로그형</div></div>
+              <div class="preset-item" onclick="selectPreset(this)"><div class="pi-icon">📊</div><div class="pi-name">정보형</div></div>
+            </div>
+          </div>
+
+          <!-- ═══ INPUTS: Thumbnail ═══ -->
+          <div class="editor-section" data-editor="thumbnail" id="inputs-thumb">
+            <div class="es-title">채널 정보</div>
+            <div class="content-block">
+              <label class="field-label">채널명</label>
+              <input class="input-field" type="text" placeholder="예: 쿡방 연구소" id="thumbChannel" oninput="buildThumbPreview()">
+            </div>
+          </div>
+
+          <div class="editor-section" data-editor="thumbnail" id="inputs-thumb-ref">
+            <div class="es-title">기존 썸네일 (레퍼런스)</div>
+            <div class="file-drop" id="thumbRefDrop" onclick="simulateThumbRef()">
+              <div class="file-drop-icon">🖼️</div>
+              <div class="file-drop-text">기존 썸네일 이미지를 업로드하면<br>스타일을 분석해서 반영해요</div>
+            </div>
+            <div id="thumbRefTag" style="display:none;">
+              <div class="uploaded-tag">🖼️ existing_thumb.jpg <span class="remove-tag" onclick="removeThumbRef()">✕</span></div>
+            </div>
+            <div id="thumbRefGrid" style="display:none;margin-top:12px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="aspect-ratio:16/9;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+                  <div style="font-size:20px;font-weight:800;color:#E74C3C;font-family:'Outfit';text-shadow:0 2px 4px rgba(0,0,0,.5);">먹방 BEST</div>
+                </div>
+                <div style="aspect-ratio:16/9;background:linear-gradient(135deg,#0f3460,#533483);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                  <div style="font-size:20px;font-weight:800;color:#F1C40F;font-family:'Outfit';text-shadow:0 2px 4px rgba(0,0,0,.5);">TOP 10</div>
+                </div>
+              </div>
+              <div style="margin-top:10px;padding:10px 14px;background:var(--o50);border-radius:8px;border-left:3px solid var(--o500);">
+                <div style="font-size:12px;font-weight:700;color:var(--o600);font-family:'Outfit';margin-bottom:4px;">스타일 분석 결과</div>
+                <div style="font-size:12px;color:var(--s600);line-height:1.6;">굵은 텍스트 중심 · 어두운 배경 · 강렬한 컬러 포인트 · 이모지 활용</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-section" data-editor="thumbnail" id="inputs-thumb-topic">
+            <div class="es-title">콘텐츠 정보</div>
+            <div class="content-block">
+              <label class="field-label">영상 주제 / 제목</label>
+              <textarea class="editor-textarea" placeholder="예: 편의점 신상 5개 솔직 리뷰&#10;예: 직장인 퇴근 후 30분 요리" id="thumbTopic" oninput="buildThumbPreview()" style="min-height:80px;"></textarea>
+            </div>
+            <div class="content-block">
+              <label class="field-label">강조 키워드 (선택)</label>
+              <input class="input-field" type="text" placeholder="예: TOP5, 충격, 꿀팁, BEST" id="thumbKeyword" oninput="buildThumbPreview()">
+            </div>
+            <div class="content-block">
+              <label class="field-label">인물/제품 사진 (선택)</label>
+              <div class="file-drop" id="thumbPhotoDrop" onclick="simulateUpload('thumbPhotoDrop','thumbPhotoTag','📷 person.jpg')">
+                <div class="file-drop-icon">📷</div>
+                <div class="file-drop-text">인물이나 제품 사진 업로드</div>
+              </div>
+              <div id="thumbPhotoTag" style="display:none;">
+                <div class="uploaded-tag">📷 person.jpg <span class="remove-tag" onclick="removeUpload('thumbPhotoDrop','thumbPhotoTag')">✕</span></div>
+              </div>
+            </div>
           </div>
 
           <!-- ═══ SIZE SELECTOR: Card News ═══ -->
@@ -1882,6 +1978,29 @@
               </div>
             </div>
 
+          <!-- ═══ PREVIEW: Thumbnail ═══ -->
+            <div class="preview-area" id="preview-thumbnail">
+              <div class="preview-frame thumb-mode" id="thumbFrame">
+                <div id="thumbPreviewContent" style="width:100%;height:100%;position:relative;overflow:hidden;border-radius:16px;">
+                  <div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;position:relative;">
+                    <!-- Channel badge -->
+                    <div style="position:absolute;top:16px;left:16px;display:flex;align-items:center;gap:8px;">
+                      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#E74C3C,#C0392B);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;font-family:'Outfit';" id="thumbChannelBadge">C</div>
+                      <div style="font-size:12px;color:rgba(255,255,255,.7);font-family:'Outfit';font-weight:600;" id="thumbChannelLabel">채널명</div>
+                    </div>
+                    <!-- Keyword badge -->
+                    <div style="position:absolute;top:16px;right:16px;display:none;background:#E74C3C;color:white;font-family:'Outfit';font-weight:800;font-size:13px;padding:4px 14px;border-radius:4px;transform:rotate(2deg);" id="thumbKeywordBadge">NEW</div>
+                    <!-- Main title -->
+                    <div style="font-family:'Outfit';font-size:32px;font-weight:800;color:white;text-align:center;line-height:1.2;text-shadow:0 3px 12px rgba(0,0,0,.5);letter-spacing:-.02em;" id="thumbTitleDisplay">영상 주제를<br>입력하세요</div>
+                    <!-- Sub line -->
+                    <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,.5);font-family:'Outfit';" id="thumbSubDisplay"></div>
+                    <!-- Photo placeholder -->
+                    <div style="position:absolute;right:20px;bottom:20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.1);border:2px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:28px;" id="thumbPhotoPlaceholder">👤</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div class="status-bar">
@@ -1967,6 +2086,21 @@
               <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
             </div>
             <div class="result-info"><div class="result-name">package-side.png</div><div class="result-size">70x297mm · 1.5MB</div></div>
+          </div>
+        </div>
+
+        <!-- Thumbnail Results -->
+        <div id="results-thumbnail" style="display:none;">
+          <div class="results-grid stagger" style="grid-template-columns:1fr;">
+            <div class="result-card" onclick="openThumbModal()" style="max-width:640px;">
+              <div class="result-thumb" style="background:linear-gradient(135deg,#1a1a2e,#16213e);aspect-ratio:16/9;">
+                <div class="result-thumb-inner" style="background:transparent;width:90%;height:90%;">
+                  <div style="font-family:'Outfit';font-size:24px;font-weight:800;color:white;text-align:center;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.5);" id="thumbResultTitle">썸네일 제목</div>
+                </div>
+                <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
+              </div>
+              <div class="result-info"><div class="result-name">thumbnail.png</div><div class="result-size">1280×720 · 485KB</div></div>
+            </div>
           </div>
         </div>
 
@@ -2084,7 +2218,7 @@ function rgbToHex(rgb) {
 // BRAND CHIPS (Editor)
 // ═══════════════════════════════════════════════
 function renderBrandChips() {
-  ['brandChipsCard', 'brandChipsDetail', 'brandChipsPkg'].forEach(containerId => {
+  ['brandChipsCard', 'brandChipsDetail', 'brandChipsPkg', 'brandChipsThumb'].forEach(containerId => {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = '';
@@ -2158,7 +2292,7 @@ document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=
 // ═══════════════════════════════════════════════
 function goToEditor(type){
   currentEditorType = type;
-  const titles = {'card-news':'카드뉴스 에디터','detail-page':'상세페이지 에디터','package':'패키지 에디터'};
+  const titles = {'card-news':'카드뉴스 에디터','detail-page':'상세페이지 에디터','package':'패키지 에디터','thumbnail':'썸네일 에디터'};
   document.getElementById('editorTitle').textContent = titles[type] || '에디터';
 
   // Show/hide editor sections by data-editor attribute
@@ -2202,6 +2336,9 @@ function updateStatusBar(type) {
     const labels = {front:'Front · 210 x 297mm', back:'Back · 210 x 297mm', side:'Side · 70 x 297mm'};
     sizeEl.textContent = labels[currentPkgPanel] || 'Front · 210 x 297mm';
     slideEl.textContent = currentPkgPreset === 'minimal' ? '미니멀형' : currentPkgPreset === 'illust' ? '일러스트형' : '포토형';
+  } else if (type === 'thumbnail') {
+    sizeEl.textContent = '1280 x 720';
+    slideEl.textContent = '썸네일';
   }
 }
 
@@ -2661,6 +2798,7 @@ function showResults() {
   document.getElementById('results-card-news').style.display = 'none';
   document.getElementById('results-detail-page').style.display = 'none';
   document.getElementById('results-package').style.display = 'none';
+  document.getElementById('results-thumbnail').style.display = 'none';
 
   const titleEl = document.getElementById('resultsTitle');
   const subEl = document.getElementById('resultsSub');
@@ -2679,7 +2817,32 @@ function showResults() {
     document.getElementById('results-package').style.display = '';
     titleEl.textContent = '생성 완료! 🎉';
     subEl.textContent = '패키지 디자인 3면이 생성되었어요.';
+  } else if (currentEditorType === 'thumbnail') {
+    document.getElementById('results-thumbnail').style.display = '';
+    const topic = (document.getElementById('thumbTopic')?.value||'썸네일').trim();
+    document.getElementById('thumbResultTitle').textContent = topic;
+    titleEl.textContent = '생성 완료! 🎉';
+    subEl.textContent = '썸네일이 생성되었어요. 클릭하면 크게 볼 수 있어요.';
   }
+}
+
+function openThumbModal(){
+  const topic = (document.getElementById('thumbTopic')?.value||'썸네일').trim();
+  const channel = (document.getElementById('thumbChannel')?.value||'').trim();
+  const keyword = (document.getElementById('thumbKeyword')?.value||'').trim();
+  const m=document.getElementById('modal');
+  const c=document.getElementById('modalContent');
+  c.style.background='linear-gradient(135deg,#1a1a2e,#0f3460)';
+  c.innerHTML=`
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;position:relative;">
+      ${channel?`<div style="position:absolute;top:20px;left:20px;display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#E74C3C,#C0392B);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white;font-family:Outfit;">${channel.charAt(0).toUpperCase()}</div><div style="font-size:14px;color:rgba(255,255,255,.7);font-family:Outfit;font-weight:600;">${channel}</div></div>`:''}
+      ${keyword?`<div style="position:absolute;top:20px;right:20px;background:#E74C3C;color:white;font-family:Outfit;font-weight:800;font-size:16px;padding:6px 18px;border-radius:4px;transform:rotate(2deg);">${keyword}</div>`:''}
+      <div style="font-family:Outfit;font-size:48px;font-weight:800;color:white;text-align:center;line-height:1.2;text-shadow:0 4px 16px rgba(0,0,0,.5);">${topic.replace(/\n/g,'<br>')}</div>
+    </div>
+    <button class="modal-close" onclick="closeModal(event,true)">✕</button>
+    <div class="modal-slide-label">thumbnail.png · 1280x720</div>
+  `;
+  m.classList.add('show');
 }
 
 function buildCardResults(){
@@ -2939,6 +3102,66 @@ document.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft')prevSlide();
   }
 });
+
+// ═══════════════════════════════════════════════
+// THUMBNAIL
+// ═══════════════════════════════════════════════
+function buildThumbPreview(){
+  const channel = (document.getElementById('thumbChannel')?.value||'').trim();
+  const topic = (document.getElementById('thumbTopic')?.value||'').trim();
+  const keyword = (document.getElementById('thumbKeyword')?.value||'').trim();
+  const b = brands[selectedBrandIndex]||{color:'#FF6B35'};
+
+  // Channel badge
+  const badge = document.getElementById('thumbChannelBadge');
+  const label = document.getElementById('thumbChannelLabel');
+  if(badge) badge.textContent = channel ? channel.charAt(0).toUpperCase() : 'C';
+  if(label) label.textContent = channel || '채널명';
+
+  // Title
+  const titleEl = document.getElementById('thumbTitleDisplay');
+  if(titleEl){
+    if(topic){
+      // Split into max 2 lines for impact
+      const lines = topic.split('\n').filter(s=>s.trim());
+      titleEl.innerHTML = lines.map(l=>`<div>${l.trim()}</div>`).join('');
+    } else {
+      titleEl.innerHTML = '영상 주제를<br>입력하세요';
+    }
+  }
+
+  // Keyword badge
+  const kwBadge = document.getElementById('thumbKeywordBadge');
+  if(kwBadge){
+    if(keyword){
+      kwBadge.style.display = 'block';
+      kwBadge.textContent = keyword;
+    } else {
+      kwBadge.style.display = 'none';
+    }
+  }
+}
+
+function simulateThumbRef(){
+  const drop = document.getElementById('thumbRefDrop');
+  const tag = document.getElementById('thumbRefTag');
+  const grid = document.getElementById('thumbRefGrid');
+  if(drop.classList.contains('uploaded')) return;
+  drop.classList.add('uploaded');
+  drop.innerHTML = '<div style="font-size:24px;">✅</div><div style="font-size:13px;color:var(--o600);font-weight:600;margin-top:4px;">2개 썸네일 분석 완료</div>';
+  tag.style.display = 'block';
+  grid.style.display = 'block';
+}
+
+function removeThumbRef(){
+  const drop = document.getElementById('thumbRefDrop');
+  const tag = document.getElementById('thumbRefTag');
+  const grid = document.getElementById('thumbRefGrid');
+  drop.classList.remove('uploaded');
+  drop.innerHTML = '<div class="file-drop-icon">🖼️</div><div class="file-drop-text">기존 썸네일 이미지를 업로드하면<br>스타일을 분석해서 반영해요</div>';
+  tag.style.display = 'none';
+  grid.style.display = 'none';
+}
 
 // ═══════════════════════════════════════════════
 // INITIALIZE

@@ -1,0 +1,2951 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Auto — 디자인 자동화</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════════ */
+    /* TOKENS                                             */
+    /* ═══════════════════════════════════════════════════ */
+    :root {
+      --o50:#FFF7ED;--o100:#FFEDD5;--o200:#FED7AA;--o300:#FDBA74;
+      --o400:#FB923C;--o500:#FF6B35;--o600:#EA580C;--o700:#C2410C;
+      --s50:#FAFAF7;--s100:#F5F4F0;--s200:#E8E6DE;--s300:#D4D1C7;
+      --s400:#B0ACA0;--s500:#8C8778;--s600:#6B6658;--s700:#4A4640;
+      --s800:#2D2B27;--s900:#1A1917;
+      --white:#FFFFFF;
+      --sidebar-w:260px;
+      --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:20px;--r-2xl:24px;
+      --ease:cubic-bezier(.4,0,.2,1);
+      --spring:cubic-bezier(.34,1.56,.64,1);
+    }
+
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body{
+      font-family:'Noto Sans KR','Outfit',sans-serif;
+      background:var(--s50);
+      color:var(--s800);
+      overflow:hidden;
+      height:100vh;
+    }
+
+    /* noise */
+    body::before{
+      content:'';position:fixed;inset:0;opacity:.02;pointer-events:none;z-index:9999;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /* LAYOUT                                             */
+    /* ═══════════════════════════════════════════════════ */
+    .app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* SIDEBAR                                            */
+    /* ═══════════════════════════════════════════════════ */
+    .sidebar{
+      background:var(--s900);
+      padding:24px 16px;
+      display:flex;flex-direction:column;gap:2px;
+      position:relative;overflow:hidden;
+    }
+    .sidebar::after{
+      content:'';position:absolute;bottom:0;left:0;right:0;height:260px;
+      background:radial-gradient(ellipse at 50% 100%,rgba(255,107,53,.08),transparent 70%);
+      pointer-events:none;
+    }
+
+    .sb-brand{display:flex;align-items:center;gap:12px;padding:8px 12px;margin-bottom:28px;}
+    .sb-brand-icon{
+      width:38px;height:38px;
+      background:linear-gradient(135deg,var(--o500),var(--o600));
+      border-radius:11px;display:flex;align-items:center;justify-content:center;
+      font-family:'Outfit';font-weight:800;font-size:15px;color:white;
+      box-shadow:0 4px 14px rgba(255,107,53,.45);
+      position:relative;
+    }
+    .sb-brand-icon::after{
+      content:'';position:absolute;inset:-2px;border-radius:13px;
+      background:linear-gradient(135deg,rgba(255,107,53,.4),transparent);
+      z-index:-1;filter:blur(6px);
+    }
+    .sb-brand-text{font-family:'Outfit';font-weight:700;font-size:17px;color:var(--s100);letter-spacing:-.03em;}
+
+    .sb-section{font-size:10px;font-weight:700;color:var(--s500);letter-spacing:.1em;text-transform:uppercase;padding:20px 12px 8px;font-family:'Outfit';}
+
+    .nav-item{
+      display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r-sm);
+      cursor:pointer;transition:all .2s var(--ease);color:var(--s400);font-size:14px;font-weight:400;
+      position:relative;z-index:1;
+    }
+    .nav-item:hover{color:var(--s200);background:rgba(255,255,255,.04);}
+    .nav-item.active{color:white;background:rgba(255,107,53,.12);}
+    .nav-item.active::before{
+      content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+      width:3px;height:20px;background:var(--o500);border-radius:0 4px 4px 0;
+      box-shadow:0 0 8px rgba(255,107,53,.5);
+    }
+    .nav-icon{width:20px;height:20px;opacity:.6;flex-shrink:0;}
+    .nav-item.active .nav-icon{opacity:1;}
+
+    .sb-badge{
+      margin-left:auto;font-size:10px;font-weight:700;font-family:'Outfit';
+      background:var(--o500);color:white;padding:2px 7px;border-radius:10px;
+    }
+
+    .sb-footer{
+      margin-top:auto;padding:16px 12px;border-top:1px solid rgba(255,255,255,.05);
+      display:flex;align-items:center;gap:10px;position:relative;z-index:1;
+    }
+    .avatar{
+      width:34px;height:34px;border-radius:50%;
+      background:linear-gradient(135deg,var(--o400),var(--o600));
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;color:white;
+    }
+    .sb-footer-info{font-size:13px;color:var(--s300);}
+    .sb-footer-plan{font-size:11px;color:var(--s500);font-family:'Outfit';}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* MAIN                                               */
+    /* ═══════════════════════════════════════════════════ */
+    .main{overflow-y:auto;position:relative;}
+
+    .page{display:none;min-height:100vh;}
+    .page.active{display:block;animation:pageIn .5s var(--ease);}
+    @keyframes pageIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+    .page-pad{padding:44px 52px;}
+
+    .page-header{margin-bottom:40px;}
+    .deco-line{width:52px;height:3px;background:linear-gradient(90deg,var(--o500),var(--o300));border-radius:2px;margin-bottom:12px;}
+    .page-title{font-family:'Outfit';font-size:32px;font-weight:800;color:var(--s900);letter-spacing:-.04em;margin-bottom:6px;}
+    .page-sub{font-size:15px;color:var(--s500);line-height:1.7;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* STAGGER ANIMATION                                  */
+    /* ═══════════════════════════════════════════════════ */
+    .stagger>*{opacity:0;animation:stIn .55s var(--ease) forwards;}
+    .stagger>*:nth-child(1){animation-delay:.06s;}
+    .stagger>*:nth-child(2){animation-delay:.12s;}
+    .stagger>*:nth-child(3){animation-delay:.18s;}
+    .stagger>*:nth-child(4){animation-delay:.24s;}
+    .stagger>*:nth-child(5){animation-delay:.3s;}
+    .stagger>*:nth-child(6){animation-delay:.36s;}
+    .stagger>*:nth-child(7){animation-delay:.42s;}
+    @keyframes stIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* DASHBOARD CARDS                                    */
+    /* ═══════════════════════════════════════════════════ */
+    .type-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:52px;perspective:800px;}
+
+    .type-card{
+      background:var(--white);border-radius:var(--r-2xl);
+      padding:0;cursor:pointer;transition:all .35s var(--ease);
+      border:2px solid transparent;position:relative;overflow:hidden;
+      transform-style:preserve-3d;
+    }
+    .type-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:4px;
+      background:linear-gradient(90deg,var(--o500),var(--o300));
+      transform:scaleX(0);transform-origin:left;transition:transform .5s var(--ease);
+    }
+    .type-card:hover{
+      border-color:var(--o200);
+      box-shadow:0 20px 50px rgba(255,107,53,.12),0 8px 20px rgba(0,0,0,.06);
+      transform:translateY(-6px) rotateX(2deg);
+    }
+    .type-card:hover::before{transform:scaleX(1);}
+
+    .tc-preview{
+      height:180px;position:relative;overflow:hidden;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .tc-preview-bg{
+      position:absolute;inset:0;transition:transform .6s var(--ease);
+    }
+    .type-card:hover .tc-preview-bg{transform:scale(1.05);}
+
+    .tc-preview-content{
+      position:relative;z-index:1;width:120px;height:120px;
+      background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
+      border-radius:var(--r-lg);box-shadow:0 8px 32px rgba(0,0,0,.1);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      transition:transform .4s var(--spring);
+    }
+    .type-card:hover .tc-preview-content{transform:scale(1.06) translateY(-4px);}
+
+    .tc-body{padding:24px 28px 28px;}
+    .tc-title{font-family:'Outfit';font-size:20px;font-weight:700;color:var(--s900);letter-spacing:-.02em;margin-bottom:6px;}
+    .tc-desc{font-size:14px;color:var(--s500);line-height:1.6;margin-bottom:16px;}
+    .tc-presets{display:flex;flex-wrap:wrap;gap:6px;}
+    .preset-tag{font-size:11px;font-weight:600;color:var(--o600);background:var(--o50);padding:4px 10px;border-radius:20px;font-family:'Outfit';letter-spacing:.01em;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* RECENT                                             */
+    /* ═══════════════════════════════════════════════════ */
+    .recent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .recent-title{font-family:'Outfit';font-size:18px;font-weight:700;color:var(--s800);letter-spacing:-.02em;}
+    .recent-link{font-size:13px;color:var(--o500);cursor:pointer;font-weight:600;font-family:'Outfit';}
+
+    .recent-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+    .recent-item{
+      background:var(--white);border-radius:var(--r-lg);overflow:hidden;
+      cursor:pointer;transition:all .3s var(--ease);
+    }
+    .recent-item:hover{box-shadow:0 8px 24px rgba(0,0,0,.07);transform:translateY(-3px);}
+    .recent-thumb{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;overflow:hidden;}
+    .recent-thumb::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(to bottom,transparent 60%,rgba(0,0,0,.03));
+    }
+    .recent-info{padding:14px 16px;}
+    .recent-name{font-size:13px;font-weight:600;color:var(--s800);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .recent-meta{font-size:11px;color:var(--s400);font-family:'Outfit';}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* BRAND SETTINGS                                     */
+    /* ═══════════════════════════════════════════════════ */
+    .brand-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;max-width:820px;}
+    .brand-list-title{font-family:'Outfit';font-size:18px;font-weight:700;color:var(--s800);}
+
+    .brand-profiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;max-width:820px;margin-bottom:32px;}
+    .brand-profile-card{
+      background:var(--white);border-radius:var(--r-lg);padding:18px;cursor:pointer;
+      transition:all .3s var(--ease);border:2px solid transparent;position:relative;
+    }
+    .brand-profile-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.06);transform:translateY(-2px);}
+    .brand-profile-card.selected{border-color:var(--o500);box-shadow:0 4px 16px rgba(255,107,53,.12);}
+    .brand-profile-card .bpc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .brand-profile-card .bpc-swatch{width:36px;height:36px;border-radius:10px;flex-shrink:0;}
+    .brand-profile-card .bpc-name{font-family:'Outfit';font-size:14px;font-weight:700;color:var(--s800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .brand-profile-card .bpc-font{font-size:11px;color:var(--s400);font-family:'Outfit';}
+    .brand-profile-card .bpc-delete{
+      position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;
+      background:var(--s100);border:none;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      color:var(--s400);transition:all .2s;opacity:0;
+    }
+    .brand-profile-card:hover .bpc-delete{opacity:1;}
+    .brand-profile-card .bpc-delete:hover{background:#FEE2E2;color:#EF4444;}
+
+    .brand-add-card{
+      background:var(--s50);border-radius:var(--r-lg);padding:18px;cursor:pointer;
+      transition:all .3s var(--ease);border:2px dashed var(--s200);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100px;
+    }
+    .brand-add-card:hover{border-color:var(--o300);background:var(--o50);}
+    .brand-add-card .bac-icon{font-size:24px;color:var(--s300);margin-bottom:4px;transition:color .2s;}
+    .brand-add-card:hover .bac-icon{color:var(--o500);}
+    .brand-add-card .bac-text{font-size:12px;color:var(--s400);font-weight:600;}
+
+    .brand-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:820px;}
+    .brand-card{background:var(--white);border-radius:var(--r-xl);padding:28px;transition:box-shadow .3s var(--ease);}
+    .brand-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.04);}
+    .brand-card.full{grid-column:1/-1;}
+    .bc-label{font-family:'Outfit';font-size:12px;font-weight:700;color:var(--s400);letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px;}
+
+    .input-field{
+      width:100%;padding:13px 16px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:15px;font-family:'Noto Sans KR';color:var(--s800);background:var(--s50);
+      transition:all .2s var(--ease);outline:none;
+    }
+    .input-field:focus{border-color:var(--o400);box-shadow:0 0 0 4px rgba(255,107,53,.08);background:white;}
+
+    .color-swatches{display:flex;gap:10px;flex-wrap:wrap;}
+    .color-swatch{
+      width:46px;height:46px;border-radius:14px;cursor:pointer;
+      transition:all .25s var(--spring);border:3px solid transparent;position:relative;
+    }
+    .color-swatch:hover{transform:scale(1.15) rotate(3deg);}
+    .color-swatch.selected{border-color:var(--s800);box-shadow:0 4px 12px rgba(0,0,0,.15);}
+    .color-swatch.selected::after{
+      content:'\2713';position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;color:white;font-size:16px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.4);
+    }
+
+    .color-hex{display:flex;align-items:center;gap:10px;margin-top:14px;}
+    .color-hex-preview{width:34px;height:34px;border-radius:10px;background:var(--o500);border:2px solid var(--s200);transition:background .2s;}
+    .color-hex input{
+      font-family:'JetBrains Mono';font-size:14px;padding:8px 12px;
+      border:1.5px solid var(--s200);border-radius:var(--r-sm);width:120px;
+      color:var(--s700);background:var(--s50);outline:none;
+    }
+    .color-hex input:focus{border-color:var(--o400);}
+
+    .tone-options{display:flex;gap:10px;flex-wrap:wrap;}
+    .tone-chip{
+      padding:9px 20px;border-radius:28px;border:1.5px solid var(--s200);
+      font-size:14px;cursor:pointer;transition:all .25s var(--ease);
+      background:white;color:var(--s600);font-weight:500;
+    }
+    .tone-chip:hover{border-color:var(--o300);color:var(--o600);transform:translateY(-1px);}
+    .tone-chip.selected{background:var(--o500);color:white;border-color:var(--o500);box-shadow:0 4px 14px rgba(255,107,53,.3);}
+
+    .brand-save-row{display:flex;justify-content:flex-end;margin-top:28px;max-width:820px;}
+
+    /* brand preview card */
+    .brand-preview{
+      grid-column:1/-1;background:var(--s900);border-radius:var(--r-xl);padding:32px;
+      display:flex;align-items:center;gap:28px;position:relative;overflow:hidden;
+    }
+    .brand-preview::before{
+      content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+      background:radial-gradient(circle,rgba(255,107,53,.15),transparent 70%);
+    }
+    .bp-swatch{width:72px;height:72px;border-radius:18px;position:relative;z-index:1;}
+    .bp-info{position:relative;z-index:1;}
+    .bp-name{font-family:'Outfit';font-size:22px;font-weight:700;color:white;letter-spacing:-.02em;}
+    .bp-details{font-size:13px;color:var(--s400);margin-top:4px;font-family:'Outfit';}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* EDITOR                                             */
+    /* ═══════════════════════════════════════════════════ */
+    .editor-layout{display:grid;grid-template-columns:390px 1fr;height:100vh;}
+
+    .editor-panel{
+      background:var(--white);border-right:1px solid var(--s200);
+      overflow-y:auto;padding:32px 28px;padding-bottom:100px;
+    }
+    .editor-panel-header{
+      display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;
+    }
+    .ep-title{font-family:'Outfit';font-size:20px;font-weight:700;color:var(--s900);letter-spacing:-.02em;}
+    .ep-back{
+      font-size:13px;color:var(--s400);cursor:pointer;font-family:'Outfit';font-weight:500;
+      padding:6px 14px;border-radius:20px;border:1.5px solid var(--s200);transition:all .2s;
+    }
+    .ep-back:hover{border-color:var(--o300);color:var(--o500);}
+
+    .editor-section{margin-bottom:28px;}
+    .es-title{font-family:'Outfit';font-size:11px;font-weight:700;color:var(--s400);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
+    .field-label{font-size:13px;font-weight:600;color:var(--s600);margin-bottom:8px;display:block;}
+
+    .preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .preset-item{
+      background:var(--s50);border:2px solid var(--s200);border-radius:var(--r-md);
+      padding:16px 12px;cursor:pointer;transition:all .25s var(--ease);text-align:center;
+      position:relative;overflow:hidden;
+    }
+    .preset-item::after{
+      content:'';position:absolute;inset:0;border-radius:inherit;
+      box-shadow:inset 0 0 0 2px var(--o500);opacity:0;transition:opacity .2s;
+    }
+    .preset-item:hover{border-color:var(--o300);background:var(--o50);transform:translateY(-2px);}
+    .preset-item.selected{border-color:var(--o500);background:var(--o50);box-shadow:0 4px 16px rgba(255,107,53,.12);}
+    .preset-item.selected::after{opacity:1;}
+    .pi-icon{font-size:28px;margin-bottom:6px;transition:transform .3s var(--spring);}
+    .preset-item:hover .pi-icon{transform:scale(1.15);}
+    .pi-name{font-size:13px;font-weight:600;color:var(--s700);}
+
+    /* slide counter */
+    .slide-counter{display:flex;align-items:center;gap:20px;}
+    .counter-btn{
+      width:40px;height:40px;border-radius:50%;border:1.5px solid var(--s200);
+      background:white;font-size:20px;cursor:pointer;display:flex;align-items:center;
+      justify-content:center;color:var(--s600);transition:all .2s var(--ease);
+    }
+    .counter-btn:hover{border-color:var(--o400);color:var(--o500);transform:scale(1.08);}
+    .counter-btn:active{transform:scale(.95);}
+    .counter-val{font-family:'Outfit';font-size:28px;font-weight:700;color:var(--s800);min-width:36px;text-align:center;}
+
+    .editor-textarea{
+      width:100%;padding:12px 14px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:14px;font-family:'Noto Sans KR';color:var(--s800);background:var(--s50);
+      resize:vertical;min-height:80px;outline:none;transition:all .2s;
+    }
+    .editor-textarea:focus{border-color:var(--o400);box-shadow:0 0 0 3px rgba(255,107,53,.08);}
+
+    .editor-select{
+      width:100%;padding:13px 16px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:14px;font-family:'Noto Sans KR';color:var(--s800);background:var(--s50);
+      transition:all .2s var(--ease);outline:none;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238C8778' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 14px center;
+      cursor:pointer;
+    }
+    .editor-select:focus{border-color:var(--o400);box-shadow:0 0 0 4px rgba(255,107,53,.08);background-color:white;}
+
+    /* file drop */
+    .file-drop{
+      border:2px dashed var(--s200);border-radius:var(--r-md);padding:28px;text-align:center;
+      cursor:pointer;transition:all .3s var(--ease);position:relative;
+    }
+    .file-drop:hover{border-color:var(--o300);background:var(--o50);}
+    .file-drop.uploaded{border-color:var(--o400);background:var(--o50);border-style:solid;}
+    .file-drop-icon{font-size:28px;margin-bottom:8px;transition:transform .3s var(--spring);}
+    .file-drop:hover .file-drop-icon{transform:translateY(-4px);}
+    .file-drop-text{font-size:13px;color:var(--s400);}
+    .file-drop-small{padding:18px;border:2px dashed var(--s200);border-radius:var(--r-md);text-align:center;cursor:pointer;transition:all .3s var(--ease);}
+    .file-drop-small:hover{border-color:var(--o300);background:var(--o50);}
+    .file-drop-small.uploaded{border-color:var(--o400);background:var(--o50);border-style:solid;}
+
+    /* uploaded file tag */
+    .uploaded-tag{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+      background:var(--o50);border:1.5px solid var(--o200);border-radius:var(--r-sm);
+      font-size:13px;color:var(--s700);margin-top:8px;
+    }
+    .uploaded-tag .remove-tag{cursor:pointer;color:var(--s400);font-size:14px;transition:color .2s;}
+    .uploaded-tag .remove-tag:hover{color:#EF4444;}
+
+    /* generate button */
+    .btn-generate{
+      width:100%;padding:18px;
+      background:linear-gradient(135deg,var(--o500) 0%,var(--o600) 100%);
+      color:white;border:none;border-radius:var(--r-md);font-size:16px;font-weight:700;
+      cursor:pointer;font-family:'Outfit';position:relative;overflow:hidden;
+      transition:all .3s var(--ease);letter-spacing:-.01em;
+      box-shadow:0 4px 16px rgba(255,107,53,.35);
+    }
+    .btn-generate::before{
+      content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);
+      transition:left .7s ease;
+    }
+    .btn-generate:hover{box-shadow:0 8px 30px rgba(255,107,53,.45);transform:translateY(-2px);}
+    .btn-generate:hover::before{left:100%;}
+    .btn-generate:active{transform:translateY(0);box-shadow:0 2px 8px rgba(255,107,53,.3);}
+
+    /* generate loading state */
+    .btn-generate.loading{pointer-events:none;opacity:.85;}
+    .btn-generate.loading .btn-text{opacity:0;}
+    .btn-generate .progress-bar{
+      position:absolute;bottom:0;left:0;height:3px;
+      background:rgba(255,255,255,.5);width:0;transition:width .3s;
+      border-radius:0 2px 0 0;
+    }
+    .btn-generate .spinner{
+      position:absolute;inset:0;display:none;align-items:center;justify-content:center;gap:8px;
+      color:white;font-size:14px;font-weight:600;
+    }
+    .btn-generate.loading .spinner{display:flex;}
+
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .spin-icon{width:20px;height:20px;border:2.5px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* SIZE SELECTOR                                      */
+    /* ═══════════════════════════════════════════════════ */
+    .size-selector{display:flex;gap:10px;align-items:center;margin-bottom:12px;}
+    .size-input{
+      width:80px;padding:10px 12px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:14px;font-family:'JetBrains Mono';color:var(--s800);background:var(--s50);
+      text-align:center;outline:none;transition:all .2s;
+    }
+    .size-input:focus{border-color:var(--o400);box-shadow:0 0 0 3px rgba(255,107,53,.08);}
+    .size-x{font-family:'Outfit';font-size:14px;color:var(--s400);font-weight:600;}
+    .size-presets{display:flex;flex-wrap:wrap;gap:6px;}
+    .size-preset-btn{
+      padding:6px 12px;border-radius:20px;border:1.5px solid var(--s200);
+      font-size:11px;cursor:pointer;transition:all .2s var(--ease);
+      background:white;color:var(--s600);font-weight:500;font-family:'Outfit';
+    }
+    .size-preset-btn:hover{border-color:var(--o300);color:var(--o600);}
+    .size-preset-btn.active{background:var(--o500);color:white;border-color:var(--o500);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* MODE TOGGLE                                        */
+    /* ═══════════════════════════════════════════════════ */
+    .mode-toggle{display:flex;background:var(--s100);border-radius:var(--r-sm);padding:3px;margin-bottom:12px;}
+    .mode-toggle-btn{
+      flex:1;padding:9px 14px;border-radius:6px;border:none;font-size:13px;font-weight:600;
+      cursor:pointer;transition:all .25s var(--ease);background:transparent;color:var(--s500);
+      font-family:'Noto Sans KR';
+    }
+    .mode-toggle-btn.active{background:white;color:var(--o600);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* 3x3 POSITION GRID                                  */
+    /* ═══════════════════════════════════════════════════ */
+    .position-grid{
+      display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);
+      gap:3px;width:fit-content;
+    }
+    .position-cell{
+      background:var(--s100);border:1.5px solid var(--s200);border-radius:6px;
+      cursor:pointer;transition:all .2s var(--ease);
+    }
+    .position-cell:hover{background:var(--o100);border-color:var(--o300);}
+    .position-cell.active{background:var(--o500);border-color:var(--o500);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* BRAND CHIP SELECTOR                                */
+    /* ═══════════════════════════════════════════════════ */
+    .brand-chip-selector{display:flex;gap:8px;flex-wrap:wrap;}
+    .brand-chip{
+      display:flex;align-items:center;gap:6px;padding:7px 14px;
+      border-radius:20px;border:1.5px solid var(--s200);cursor:pointer;
+      transition:all .25s var(--ease);background:white;font-size:13px;color:var(--s600);font-weight:500;
+    }
+    .brand-chip:hover{border-color:var(--o300);}
+    .brand-chip.active{border-color:var(--o500);background:var(--o50);color:var(--o700);}
+    .brand-chip-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* REFERENCE LINKS                                    */
+    /* ═══════════════════════════════════════════════════ */
+    .ref-link-input-row{display:flex;gap:8px;margin-bottom:10px;}
+    .ref-link-input{
+      flex:1;padding:10px 14px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:13px;font-family:'Noto Sans KR';color:var(--s800);background:var(--s50);outline:none;
+      transition:all .2s;
+    }
+    .ref-link-input:focus{border-color:var(--o400);box-shadow:0 0 0 3px rgba(255,107,53,.08);}
+    .ref-link-add-btn{
+      padding:10px 18px;border-radius:var(--r-sm);border:none;
+      background:var(--o500);color:white;font-size:13px;font-weight:700;
+      cursor:pointer;font-family:'Outfit';transition:all .2s;white-space:nowrap;
+    }
+    .ref-link-add-btn:hover{background:var(--o600);}
+    .ref-links-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+    .ref-link-tag{
+      display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+      background:var(--s50);border:1.5px solid var(--s200);border-radius:20px;
+      font-size:12px;color:var(--s600);
+    }
+    .ref-link-tag .remove-ref{cursor:pointer;color:var(--s400);transition:color .2s;}
+    .ref-link-tag .remove-ref:hover{color:#EF4444;}
+    .ref-note{font-size:11px;color:var(--s400);line-height:1.6;margin-top:8px;}
+
+    /* Reference analysis */
+    .ref-analysis{
+      background:var(--s50);border-radius:var(--r-md);padding:16px;margin-top:12px;
+      border:1.5px solid var(--s200);
+    }
+    .ref-analysis-title{font-family:'Outfit';font-size:12px;font-weight:700;color:var(--s700);margin-bottom:8px;}
+    .ref-analysis-text{font-size:12px;color:var(--s500);line-height:1.6;margin-bottom:10px;}
+    .ref-analysis-tags{display:flex;flex-wrap:wrap;gap:6px;}
+    .ref-analysis-tag{
+      padding:4px 10px;border-radius:16px;background:var(--o50);
+      font-size:11px;font-weight:600;color:var(--o600);font-family:'Outfit';
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /* CONTENT BLOCKS (Card News)                         */
+    /* ═══════════════════════════════════════════════════ */
+    .content-block{margin-bottom:14px;}
+    .content-block .field-label{display:flex;align-items:center;justify-content:space-between;}
+    .content-block .remove-block{font-size:12px;color:var(--s400);cursor:pointer;transition:color .2s;}
+    .content-block .remove-block:hover{color:#EF4444;}
+    .add-content-btn{
+      display:flex;align-items:center;gap:6px;padding:10px 16px;
+      border-radius:var(--r-sm);border:1.5px dashed var(--s200);
+      background:transparent;font-size:13px;cursor:pointer;transition:all .2s;
+      color:var(--s500);font-weight:500;width:100%;justify-content:center;
+    }
+    .add-content-btn:hover{border-color:var(--o300);color:var(--o500);background:var(--o50);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* PACKAGE FILE UPLOADS                               */
+    /* ═══════════════════════════════════════════════════ */
+    .file-drop-large{
+      border:2px dashed var(--s200);border-radius:var(--r-md);padding:24px;text-align:center;
+      cursor:pointer;transition:all .3s var(--ease);margin-bottom:10px;
+    }
+    .file-drop-large:hover{border-color:var(--o300);background:var(--o50);}
+    .file-drop-large.uploaded{border-color:var(--o400);background:var(--o50);border-style:solid;}
+    .file-drop-large .fd-label{font-size:14px;font-weight:700;color:var(--s700);margin-bottom:4px;}
+    .file-drop-large .fd-desc{font-size:11px;color:var(--s400);line-height:1.5;}
+
+    .ref-thumbnails{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin-top:10px;}
+    .ref-thumb-card{
+      position:relative;aspect-ratio:1;background:var(--s100);border-radius:var(--r-sm);
+      display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;
+    }
+    .ref-thumb-card .remove-thumb{
+      position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;
+      background:rgba(0,0,0,.5);color:white;font-size:10px;border:none;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;
+    }
+    .ref-thumb-card:hover .remove-thumb{opacity:1;}
+
+    .add-ref-btn{
+      display:flex;align-items:center;gap:6px;padding:8px 14px;
+      border-radius:var(--r-sm);border:1.5px solid var(--s200);
+      background:white;font-size:12px;cursor:pointer;transition:all .2s;
+      color:var(--s600);font-weight:500;margin-top:8px;
+    }
+    .add-ref-btn:hover{border-color:var(--o300);color:var(--o500);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* MIN HEIGHT SELECTOR                                */
+    /* ═══════════════════════════════════════════════════ */
+    .min-height-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .min-height-input{
+      width:100px;padding:10px 12px;border:1.5px solid var(--s200);border-radius:var(--r-sm);
+      font-size:14px;font-family:'JetBrains Mono';color:var(--s800);background:var(--s50);
+      text-align:center;outline:none;transition:all .2s;
+    }
+    .min-height-input:focus{border-color:var(--o400);box-shadow:0 0 0 3px rgba(255,107,53,.08);}
+    .min-height-unit{font-size:13px;color:var(--s400);font-family:'JetBrains Mono';}
+    .min-height-presets{display:flex;gap:6px;margin-top:8px;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* EDITOR PREVIEW                                     */
+    /* ═══════════════════════════════════════════════════ */
+    .editor-preview{
+      background:var(--s100);display:flex;align-items:center;justify-content:center;
+      position:relative;overflow:hidden;
+    }
+    .editor-preview::before{
+      content:'';position:absolute;inset:0;
+      background:
+        radial-gradient(ellipse at 30% 40%,rgba(255,107,53,.04),transparent 60%),
+        radial-gradient(ellipse at 70% 60%,rgba(255,107,53,.03),transparent 60%);
+    }
+    /* checkerboard subtle */
+    .editor-preview::after{
+      content:'';position:absolute;inset:0;opacity:.3;
+      background-image:
+        linear-gradient(45deg,var(--s200) 25%,transparent 25%),
+        linear-gradient(-45deg,var(--s200) 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,var(--s200) 75%),
+        linear-gradient(-45deg,transparent 75%,var(--s200) 75%);
+      background-size:20px 20px;
+      background-position:0 0,0 10px,10px -10px,-10px 0;
+    }
+
+    .preview-container{position:relative;z-index:1;}
+
+    .preview-frame{
+      width:420px;height:420px;background:white;border-radius:var(--r-xl);
+      box-shadow:0 20px 60px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);
+      overflow:hidden;position:relative;
+      transition:all .5s var(--ease);
+    }
+
+    .preview-slides{display:flex;transition:transform .5s var(--ease);height:100%;}
+    .preview-slide{min-width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;position:relative;}
+
+    /* slide themes */
+    .slide-title-center{background:var(--o50);}
+    .slide-title-center .ps-label{font-size:11px;font-weight:700;color:var(--o500);letter-spacing:.1em;font-family:'Outfit';margin-bottom:6px;}
+    .slide-title-center .ps-line{width:48px;height:3px;background:var(--o500);border-radius:2px;margin:12px 0;}
+    .slide-title-center .ps-title{font-family:'Outfit';font-size:32px;font-weight:800;color:var(--s900);text-align:center;line-height:1.25;letter-spacing:-.03em;}
+    .slide-title-center .ps-sub{font-size:15px;color:var(--s500);text-align:center;margin-top:8px;}
+
+    .slide-icon-list{background:white;}
+    .slide-icon-list .ps-section-title{font-size:12px;font-weight:700;color:var(--o500);letter-spacing:.08em;font-family:'Outfit';margin-bottom:20px;text-transform:uppercase;align-self:flex-start;}
+    .icon-row{display:flex;align-items:flex-start;gap:16px;width:100%;margin-bottom:16px;}
+    .icon-circle{width:48px;height:48px;background:var(--o50);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+    .icon-text h4{font-size:15px;font-weight:600;color:var(--s800);margin-bottom:2px;}
+    .icon-text p{font-size:12px;color:var(--s500);line-height:1.5;}
+
+    .slide-fullbleed{background:linear-gradient(135deg,var(--o500),var(--o600));padding:40px;}
+    .slide-fullbleed .ps-emoji{font-size:64px;margin-bottom:16px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.15));}
+    .slide-fullbleed .ps-title{font-family:'Outfit';font-size:28px;font-weight:800;color:white;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.15);}
+    .slide-fullbleed .ps-sub{font-size:14px;color:rgba(255,255,255,.85);text-align:center;margin-top:6px;}
+    .slide-fullbleed .price-tag{
+      margin-top:20px;background:rgba(255,255,255,.95);border-radius:28px;padding:10px 28px;
+      display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.1);
+    }
+    .price-old{font-size:14px;color:var(--s400);text-decoration:line-through;}
+    .price-new{font-size:22px;font-weight:800;color:var(--o700);font-family:'Outfit';}
+
+    .slide-compare{display:grid;grid-template-columns:1fr 1fr;height:100%;padding:0 !important;}
+    .compare-side{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;}
+    .compare-left{background:var(--s100);}
+    .compare-right{background:var(--o50);}
+    .compare-label{font-size:11px;font-weight:700;letter-spacing:.1em;font-family:'Outfit';margin-bottom:16px;}
+    .compare-left .compare-label{color:var(--s400);}
+    .compare-right .compare-label{color:var(--o500);}
+    .compare-emoji{font-size:48px;margin-bottom:12px;}
+    .compare-title{font-size:18px;font-weight:700;text-align:center;line-height:1.3;margin-bottom:6px;}
+    .compare-left .compare-title{color:var(--s500);}
+    .compare-right .compare-title{color:var(--s900);}
+    .compare-desc{font-size:12px;text-align:center;line-height:1.5;}
+    .compare-left .compare-desc{color:var(--s400);}
+    .compare-right .compare-desc{color:var(--s500);}
+
+    .slide-cta{background:var(--o500);}
+    .slide-cta .ps-small{font-size:14px;color:rgba(255,255,255,.75);font-weight:500;margin-bottom:8px;}
+    .slide-cta .ps-title{font-family:'Outfit';font-size:32px;font-weight:800;color:white;text-align:center;line-height:1.25;text-shadow:0 2px 8px rgba(0,0,0,.12);}
+    .slide-cta .cta-btn{
+      margin-top:20px;background:white;color:var(--o700);font-family:'Outfit';
+      font-size:16px;font-weight:700;padding:14px 36px;border-radius:40px;
+      box-shadow:0 4px 16px rgba(0,0,0,.1);cursor:pointer;transition:all .25s var(--spring);
+    }
+    .slide-cta .cta-btn:hover{transform:scale(1.05);box-shadow:0 6px 24px rgba(0,0,0,.15);}
+
+    /* slide dots */
+    .slide-dots{
+      position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+      display:flex;gap:6px;z-index:5;
+    }
+    .s-dot{
+      width:7px;height:7px;border-radius:50%;background:var(--s300);cursor:pointer;
+      transition:all .25s var(--ease);
+    }
+    .s-dot.active{width:22px;border-radius:4px;background:var(--o500);}
+    .slide-compare .s-dot{background:var(--s300);}
+    .slide-compare .s-dot.active{background:var(--o500);}
+    .slide-fullbleed .s-dot,.slide-cta .s-dot{background:rgba(255,255,255,.35);}
+    .slide-fullbleed .s-dot.active,.slide-cta .s-dot.active{background:white;}
+
+    /* preview nav */
+    .preview-nav{
+      display:flex;gap:10px;margin-top:20px;justify-content:center;position:relative;z-index:2;
+    }
+    .pn-btn{
+      width:44px;height:44px;border-radius:50%;background:var(--white);border:none;
+      box-shadow:0 4px 16px rgba(0,0,0,.08);cursor:pointer;display:flex;align-items:center;
+      justify-content:center;font-size:20px;color:var(--s600);
+      transition:all .25s var(--ease);
+    }
+    .pn-btn:hover{background:var(--o500);color:white;box-shadow:0 6px 20px rgba(255,107,53,.3);transform:scale(1.08);}
+
+    /* status bar */
+    .status-bar{
+      position:absolute;bottom:0;left:0;right:0;height:44px;
+      background:rgba(255,255,255,.85);backdrop-filter:blur(16px);
+      border-top:1px solid rgba(0,0,0,.05);display:flex;align-items:center;
+      justify-content:space-between;padding:0 24px;z-index:5;
+    }
+    .status-left{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--s400);font-family:'JetBrains Mono';}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#22C55E;box-shadow:0 0 6px rgba(34,197,94,.4);}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* DETAIL PAGE PREVIEW                                */
+    /* ═══════════════════════════════════════════════════ */
+    .preview-frame.detail-mode{
+      width:380px;height:520px;border-radius:var(--r-xl);
+    }
+    .detail-scroll-wrap{
+      width:100%;height:100%;overflow-y:auto;overflow-x:hidden;
+    }
+    .detail-scroll-wrap::-webkit-scrollbar{width:4px;}
+    .detail-scroll-wrap::-webkit-scrollbar-thumb{background:var(--s300);border-radius:2px;}
+    .detail-page-inner{width:100%;min-height:100%;}
+
+    /* Hero Image Preset */
+    .dp-hero-banner{
+      width:100%;height:220px;background:linear-gradient(135deg,var(--o500),var(--o600));
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      position:relative;overflow:hidden;
+    }
+    .dp-hero-banner::before{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at 60% 80%,rgba(255,255,255,.15),transparent 60%);
+    }
+    .dp-hero-banner .dp-tag{
+      font-size:10px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.12em;font-family:'Outfit';
+      background:rgba(255,255,255,.15);backdrop-filter:blur(4px);padding:4px 14px;border-radius:20px;margin-bottom:10px;
+    }
+    .dp-hero-banner .dp-title{font-family:'Outfit';font-size:26px;font-weight:800;color:white;text-align:center;line-height:1.25;letter-spacing:-.02em;}
+    .dp-hero-banner .dp-price{font-size:14px;color:rgba(255,255,255,.8);margin-top:8px;font-family:'Outfit';font-weight:600;}
+
+    .dp-section{padding:24px 20px;}
+    .dp-section-title{font-family:'Outfit';font-size:14px;font-weight:700;color:var(--s800);letter-spacing:-.01em;margin-bottom:14px;}
+    .dp-section-sub{font-size:12px;color:var(--s500);line-height:1.7;margin-bottom:16px;}
+
+    .dp-features{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px;}
+    .dp-feature{
+      background:var(--s50);border-radius:var(--r-md);padding:16px 10px;text-align:center;
+      transition:transform .2s var(--ease);
+    }
+    .dp-feature-icon{font-size:24px;margin-bottom:6px;}
+    .dp-feature-label{font-size:10px;font-weight:600;color:var(--s600);}
+
+    .dp-alt-row{display:flex;gap:14px;padding:16px 20px;align-items:center;}
+    .dp-alt-row.reverse{flex-direction:row-reverse;}
+    .dp-alt-img{
+      width:100px;height:80px;border-radius:var(--r-md);flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:32px;
+    }
+    .dp-alt-text h4{font-size:13px;font-weight:700;color:var(--s800);margin-bottom:3px;}
+    .dp-alt-text p{font-size:11px;color:var(--s500);line-height:1.6;}
+
+    .dp-reviews{padding:16px 20px;background:var(--s50);}
+    .dp-review{
+      background:white;border-radius:var(--r-md);padding:12px;margin-bottom:8px;
+    }
+    .dp-review-stars{font-size:11px;color:var(--o500);margin-bottom:3px;}
+    .dp-review-text{font-size:11px;color:var(--s600);line-height:1.5;}
+    .dp-review-author{font-size:10px;color:var(--s400);margin-top:4px;font-family:'Outfit';}
+
+    .dp-cta-section{padding:20px;text-align:center;}
+    .dp-cta-btn{
+      display:inline-block;background:linear-gradient(135deg,var(--o500),var(--o600));
+      color:white;font-family:'Outfit';font-weight:700;font-size:14px;
+      padding:14px 44px;border-radius:32px;box-shadow:0 4px 16px rgba(255,107,53,.3);
+    }
+
+    /* Step by Step Preset */
+    .dp-overview{
+      padding:20px;text-align:center;background:linear-gradient(180deg,var(--o50),white);
+    }
+    .dp-overview-emoji{font-size:48px;margin-bottom:8px;}
+    .dp-overview-name{font-family:'Outfit';font-size:20px;font-weight:800;color:var(--s900);}
+    .dp-overview-desc{font-size:12px;color:var(--s500);margin-top:4px;}
+
+    .dp-steps{padding:20px;position:relative;}
+    .dp-step{display:flex;gap:14px;margin-bottom:20px;position:relative;}
+    .dp-step-line{
+      position:absolute;left:19px;top:40px;width:2px;bottom:-8px;
+      background:linear-gradient(180deg,var(--o300),var(--o100));
+    }
+    .dp-step:last-child .dp-step-line{display:none;}
+    .dp-step-circle{
+      width:40px;height:40px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,var(--o500),var(--o600));
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Outfit';font-weight:800;font-size:16px;color:white;
+      box-shadow:0 4px 12px rgba(255,107,53,.3);z-index:1;
+    }
+    .dp-step-content h4{font-size:14px;font-weight:700;color:var(--s800);margin-bottom:3px;margin-top:2px;}
+    .dp-step-content p{font-size:11px;color:var(--s500);line-height:1.6;}
+
+    /* Comparison Preset */
+    .dp-comp-header{
+      padding:24px 20px;text-align:center;background:var(--s900);
+    }
+    .dp-comp-header h3{font-family:'Outfit';font-size:18px;font-weight:800;color:white;letter-spacing:-.02em;}
+    .dp-comp-header p{font-size:11px;color:var(--s400);margin-top:4px;}
+
+    .dp-comp-table{padding:16px 20px;}
+    .dp-comp-row{
+      display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;
+      border-bottom:1px solid var(--s200);
+    }
+    .dp-comp-row.header{background:var(--s50);border-radius:var(--r-sm) var(--r-sm) 0 0;font-weight:700;}
+    .dp-comp-cell{padding:10px 8px;font-size:11px;color:var(--s600);text-align:center;}
+    .dp-comp-row.header .dp-comp-cell{font-weight:700;color:var(--s800);font-size:10px;font-family:'Outfit';letter-spacing:.03em;}
+    .dp-comp-cell.highlight{color:var(--o600);font-weight:700;}
+
+    .dp-diff-section{padding:16px 20px;}
+    .dp-diff-item{
+      display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;
+    }
+    .dp-diff-check{
+      width:22px;height:22px;border-radius:50%;flex-shrink:0;
+      background:linear-gradient(135deg,var(--o500),var(--o600));
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;color:white;font-weight:800;
+    }
+    .dp-diff-text{font-size:12px;color:var(--s700);line-height:1.5;padding-top:2px;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* PACKAGE PREVIEW                                    */
+    /* ═══════════════════════════════════════════════════ */
+    .preview-frame.package-mode{
+      width:520px;height:460px;border-radius:var(--r-xl);
+      background:var(--s50);
+    }
+
+    .pkg-tabs{
+      display:flex;gap:0;border-bottom:2px solid var(--s200);background:white;
+      border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;
+    }
+    .pkg-tab{
+      flex:1;padding:14px 0;text-align:center;font-family:'Outfit';font-size:13px;
+      font-weight:600;color:var(--s400);cursor:pointer;transition:all .25s var(--ease);
+      position:relative;background:white;
+    }
+    .pkg-tab:hover{color:var(--o500);background:var(--o50);}
+    .pkg-tab.active{color:var(--o600);background:var(--o50);}
+    .pkg-tab.active::after{
+      content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;
+      background:var(--o500);
+    }
+    .pkg-tab-label{font-size:10px;color:var(--s400);font-weight:400;margin-top:1px;}
+    .pkg-tab.active .pkg-tab-label{color:var(--o400);}
+
+    .pkg-panel{
+      display:none;height:calc(100% - 50px);position:relative;
+    }
+    .pkg-panel.active{display:flex;align-items:center;justify-content:center;animation:pageIn .35s var(--ease);}
+
+    .pkg-canvas{
+      width:260px;height:370px;background:white;border-radius:4px;position:relative;
+      box-shadow:0 8px 32px rgba(0,0,0,.08);
+    }
+
+    /* Trim & safe zone */
+    .pkg-canvas::before{
+      content:'';position:absolute;inset:6px;
+      border:1.5px dashed var(--s300);border-radius:2px;
+      pointer-events:none;z-index:2;
+    }
+    .pkg-canvas::after{
+      content:'TRIM';position:absolute;top:1px;right:8px;
+      font-size:7px;font-family:'JetBrains Mono';color:var(--s300);
+      letter-spacing:.1em;z-index:3;
+    }
+    .pkg-safe-zone{
+      position:absolute;inset:18px;
+      border:1px dashed rgba(34,197,94,.3);border-radius:1px;
+      pointer-events:none;z-index:2;
+    }
+    .pkg-safe-label{
+      position:absolute;bottom:-1px;right:2px;font-size:6px;
+      font-family:'JetBrains Mono';color:rgba(34,197,94,.5);letter-spacing:.1em;
+    }
+
+    .pkg-inner{
+      position:absolute;inset:24px;display:flex;flex-direction:column;
+      align-items:center;z-index:1;
+    }
+
+    /* Front panel */
+    .pkg-logo-area{
+      width:60px;height:24px;border-radius:4px;background:var(--s100);
+      display:flex;align-items:center;justify-content:center;
+      font-size:8px;font-family:'Outfit';font-weight:700;color:var(--s400);
+      letter-spacing:.05em;margin-bottom:auto;align-self:flex-start;
+    }
+    .pkg-front-visual{
+      width:120px;height:120px;border-radius:var(--r-lg);
+      background:linear-gradient(135deg,var(--o50),var(--o100));
+      display:flex;align-items:center;justify-content:center;
+      font-size:48px;margin:12px 0;
+      box-shadow:0 4px 20px rgba(255,107,53,.08);
+    }
+    .pkg-product-name{
+      font-family:'Outfit';font-size:18px;font-weight:800;color:var(--s900);
+      text-align:center;letter-spacing:-.02em;line-height:1.2;
+      margin-bottom:4px;
+    }
+    .pkg-variant{
+      font-size:10px;color:var(--o500);font-weight:600;font-family:'Outfit';
+      background:var(--o50);padding:3px 12px;border-radius:10px;margin-bottom:auto;
+    }
+    .pkg-weight{
+      font-size:11px;font-family:'JetBrains Mono';color:var(--s400);
+      margin-top:auto;
+    }
+
+    /* Back panel */
+    .pkg-back-inner{
+      position:absolute;inset:24px;display:flex;flex-direction:column;z-index:1;
+      font-size:10px;color:var(--s600);
+    }
+    .pkg-back-title{font-family:'Outfit';font-size:11px;font-weight:700;color:var(--s800);letter-spacing:.05em;margin-bottom:10px;}
+    .pkg-ingredients-table{
+      width:100%;border-collapse:collapse;margin-bottom:14px;
+    }
+    .pkg-ingredients-table th,
+    .pkg-ingredients-table td{
+      padding:5px 6px;border-bottom:1px solid var(--s200);text-align:left;
+      font-size:9px;font-family:'Noto Sans KR';
+    }
+    .pkg-ingredients-table th{
+      font-weight:700;color:var(--s700);background:var(--s50);font-size:8px;
+      font-family:'Outfit';letter-spacing:.03em;
+    }
+    .pkg-usage{
+      font-size:9px;line-height:1.7;color:var(--s500);margin-bottom:14px;
+    }
+    .pkg-usage-title{font-weight:700;color:var(--s700);margin-bottom:4px;font-size:10px;}
+    .pkg-barcode{
+      width:100%;height:40px;background:var(--s50);border-radius:4px;
+      display:flex;align-items:center;justify-content:center;margin-top:auto;
+      position:relative;overflow:hidden;
+    }
+    .pkg-barcode-lines{
+      display:flex;gap:1.5px;align-items:flex-end;height:24px;
+    }
+    .pkg-barcode-lines span{
+      display:block;width:1.5px;background:var(--s800);
+    }
+    .pkg-barcode-num{
+      position:absolute;bottom:3px;font-size:7px;font-family:'JetBrains Mono';color:var(--s500);
+    }
+    .pkg-legal{
+      font-size:7px;color:var(--s400);line-height:1.5;margin-top:8px;
+      text-align:center;
+    }
+
+    /* Side panel */
+    .pkg-canvas.side-panel{width:130px;height:370px;}
+    .pkg-canvas.side-panel::before{inset:6px;}
+    .pkg-side-inner{
+      position:absolute;inset:24px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;text-align:center;z-index:1;
+      gap:16px;
+    }
+    .pkg-side-tagline{
+      font-family:'Outfit';font-size:12px;font-weight:700;color:var(--s800);
+      letter-spacing:-.01em;line-height:1.4;
+      writing-mode:vertical-rl;text-orientation:mixed;
+      transform:rotate(180deg);
+      height:160px;display:flex;align-items:center;justify-content:center;
+    }
+    .pkg-side-selling{
+      font-size:9px;color:var(--s500);line-height:1.6;
+      writing-mode:vertical-rl;text-orientation:mixed;
+      transform:rotate(180deg);
+      height:120px;
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /* RESULTS                                            */
+    /* ═══════════════════════════════════════════════════ */
+    .results-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:36px;}
+    .results-grid.detail-results{grid-template-columns:1fr;max-width:400px;}
+    .results-grid.package-results{grid-template-columns:repeat(3,1fr);max-width:780px;}
+
+    .result-card{
+      background:var(--white);border-radius:var(--r-xl);overflow:hidden;
+      transition:all .35s var(--ease);cursor:pointer;
+    }
+    .result-card:hover{box-shadow:0 16px 40px rgba(0,0,0,.1);transform:translateY(-5px);}
+
+    .result-thumb{width:100%;aspect-ratio:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+    .result-thumb.tall{aspect-ratio:3/5;}
+    .result-thumb.pkg-thumb{aspect-ratio:3/4;}
+    .result-thumb-inner{
+      width:82%;height:82%;border-radius:var(--r-md);display:flex;flex-direction:column;
+      align-items:center;justify-content:center;padding:20px;transition:transform .4s var(--spring);
+    }
+    .result-card:hover .result-thumb-inner{transform:scale(1.04);}
+
+    .result-overlay{
+      position:absolute;inset:0;
+      background:linear-gradient(to top,rgba(26,25,23,.7),rgba(26,25,23,.3));
+      display:flex;align-items:center;justify-content:center;gap:12px;
+      opacity:0;transition:opacity .3s var(--ease);backdrop-filter:blur(2px);
+    }
+    .result-card:hover .result-overlay{opacity:1;}
+
+    .rbtn{
+      padding:11px 22px;border-radius:24px;border:none;font-size:13px;font-weight:700;
+      cursor:pointer;font-family:'Outfit';transition:all .2s var(--spring);
+    }
+    .rbtn.primary{background:var(--o500);color:white;box-shadow:0 4px 12px rgba(255,107,53,.3);}
+    .rbtn.secondary{background:rgba(255,255,255,.95);color:var(--s700);}
+    .rbtn:hover{transform:scale(1.08);}
+
+    .result-info{padding:16px 18px;}
+    .result-name{font-size:14px;font-weight:600;color:var(--s800);margin-bottom:3px;}
+    .result-size{font-size:12px;color:var(--s400);font-family:'JetBrains Mono';}
+
+    .results-actions{display:flex;gap:12px;align-items:center;}
+
+    /* ═══════════════════════════════════════════════════ */
+    /* FULLSCREEN MODAL                                   */
+    /* ═══════════════════════════════════════════════════ */
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(26,25,23,.85);backdrop-filter:blur(12px);
+      z-index:100;display:none;align-items:center;justify-content:center;
+      opacity:0;transition:opacity .3s var(--ease);
+    }
+    .modal-overlay.show{display:flex;opacity:1;}
+
+    .modal-content{
+      width:540px;height:540px;background:white;border-radius:var(--r-2xl);
+      box-shadow:0 30px 80px rgba(0,0,0,.3);position:relative;
+      overflow:hidden;animation:modalIn .4s var(--spring);
+    }
+    .modal-content.tall{width:400px;height:650px;overflow-y:auto;}
+    .modal-content.pkg-modal{width:560px;height:500px;}
+    @keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
+
+    .modal-close{
+      position:absolute;top:16px;right:16px;z-index:5;width:40px;height:40px;
+      border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+      border:none;color:white;font-size:20px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;transition:all .2s;
+    }
+    .modal-close:hover{background:var(--o500);}
+
+    .modal-slide-label{
+      position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,.5);backdrop-filter:blur(4px);color:white;
+      padding:6px 16px;border-radius:20px;font-size:12px;font-family:'Outfit';font-weight:600;
+      z-index:5;
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /* BUTTONS                                            */
+    /* ═══════════════════════════════════════════════════ */
+    .btn{
+      padding:12px 28px;border-radius:10px;border:none;font-size:14px;font-weight:700;
+      cursor:pointer;font-family:'Outfit';transition:all .25s var(--ease);
+      display:inline-flex;align-items:center;gap:8px;letter-spacing:-.01em;
+    }
+    .btn-primary{background:var(--o500);color:white;box-shadow:0 4px 14px rgba(255,107,53,.3);}
+    .btn-primary:hover{background:var(--o600);box-shadow:0 6px 20px rgba(255,107,53,.4);transform:translateY(-1px);}
+    .btn-secondary{background:var(--white);color:var(--s700);border:1.5px solid var(--s200);}
+    .btn-secondary:hover{border-color:var(--s300);background:var(--s50);}
+    .btn-ghost{background:transparent;color:var(--s500);padding:8px 16px;}
+    .btn-ghost:hover{color:var(--o500);}
+
+    /* scrollbar */
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--s300);border-radius:3px;}
+    ::-webkit-scrollbar-thumb:hover{background:var(--s400);}
+
+    /* hide/show editor sections */
+    .editor-section[data-editor]{display:none;}
+    .editor-section[data-editor].active{display:block;}
+    .preview-area{display:none;}
+    .preview-area.active{display:block;}
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-brand-icon">DA</div>
+      <div class="sb-brand-text">Design Auto</div>
+    </div>
+
+    <div class="sb-section">메인</div>
+    <div class="nav-item active" data-page="dashboard">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2"/><rect x="2" y="11" width="7" height="7" rx="2"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>
+      대시보드
+    </div>
+    <div class="nav-item" data-page="brand">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>
+      브랜드 설정
+    </div>
+
+    <div class="sb-section">디자인</div>
+    <div class="nav-item" data-page="editor">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="14" height="11" rx="2"/><path d="M7 17h6M10 14v3" stroke-linecap="round"/></svg>
+      에디터
+      <span class="sb-badge">NEW</span>
+    </div>
+    <div class="nav-item" data-page="results">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h5v7H3zM12 3h5v5h-5zM12 12h5v5h-5z" rx="1"/></svg>
+      결과물
+    </div>
+
+    <div class="sb-footer">
+      <div class="avatar">U</div>
+      <div>
+        <div class="sb-footer-info">내 워크스페이스</div>
+        <div class="sb-footer-plan">Free Plan</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-pad">
+        <div class="page-header">
+          <div class="deco-line"></div>
+          <h1 class="page-title">무엇을 만들까요?</h1>
+          <p class="page-sub">디자인 유형을 선택하면 AI가 초안을 자동으로 만들어드려요.</p>
+        </div>
+
+        <div class="type-cards stagger">
+          <div class="type-card" onclick="goToEditor('card-news')">
+            <div class="tc-preview">
+              <div class="tc-preview-bg" style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);"></div>
+              <div class="tc-preview-content">
+                <div style="font-size:11px;color:var(--o500);font-weight:700;font-family:'Outfit';letter-spacing:.05em;">CARD</div>
+                <div style="font-size:36px;margin:4px 0;">📱</div>
+                <div style="font-size:9px;color:var(--s400);font-family:'Outfit';">1080x1080</div>
+              </div>
+            </div>
+            <div class="tc-body">
+              <div class="tc-title">카드뉴스</div>
+              <div class="tc-desc">인스타그램, 블로그용 슬라이드 이미지를 자동으로 생성해요.</div>
+              <div class="tc-presets">
+                <span class="preset-tag">타이틀 중심</span>
+                <span class="preset-tag">풀블리드</span>
+                <span class="preset-tag">아이콘형</span>
+                <span class="preset-tag">비포/애프터</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="type-card" onclick="goToEditor('detail-page')">
+            <div class="tc-preview">
+              <div class="tc-preview-bg" style="background:linear-gradient(135deg,#F0FDF4,#DCFCE7);"></div>
+              <div class="tc-preview-content">
+                <div style="font-size:11px;color:#16A34A;font-weight:700;font-family:'Outfit';letter-spacing:.05em;">PAGE</div>
+                <div style="font-size:36px;margin:4px 0;">🛒</div>
+                <div style="font-size:9px;color:var(--s400);font-family:'Outfit';">860xauto</div>
+              </div>
+            </div>
+            <div class="tc-body">
+              <div class="tc-title">상세페이지</div>
+              <div class="tc-desc">스마트스토어, 쇼핑몰 상품 상세페이지 초안을 만들어요.</div>
+              <div class="tc-presets">
+                <span class="preset-tag">히어로 이미지</span>
+                <span class="preset-tag">스텝 바이 스텝</span>
+                <span class="preset-tag">비교표</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="type-card" onclick="goToEditor('package')">
+            <div class="tc-preview">
+              <div class="tc-preview-bg" style="background:linear-gradient(135deg,#FDF4FF,#FAE8FF);"></div>
+              <div class="tc-preview-content">
+                <div style="font-size:11px;color:#A855F7;font-weight:700;font-family:'Outfit';letter-spacing:.05em;">PKG</div>
+                <div style="font-size:36px;margin:4px 0;">📦</div>
+                <div style="font-size:9px;color:var(--s400);font-family:'Outfit';">F / B / S</div>
+              </div>
+            </div>
+            <div class="tc-body">
+              <div class="tc-title">패키지 디자인</div>
+              <div class="tc-desc">제품 패키지 앞면/뒷면/옆면 초안을 자동으로 생성해요.</div>
+              <div class="tc-presets">
+                <span class="preset-tag">미니멀</span>
+                <span class="preset-tag">일러스트</span>
+                <span class="preset-tag">포토</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="recent-header">
+          <div class="recent-title">최근 작업</div>
+          <div class="recent-link">전체 보기 →</div>
+        </div>
+        <div class="recent-grid stagger">
+          <div class="recent-item"><div class="recent-thumb" style="background:linear-gradient(135deg,var(--o100),var(--o50));">📱</div><div class="recent-info"><div class="recent-name">여름 신메뉴 카드뉴스</div><div class="recent-meta">5 slides · 2시간 전</div></div></div>
+          <div class="recent-item"><div class="recent-thumb" style="background:linear-gradient(135deg,#DCFCE7,#F0FDF4);">🛒</div><div class="recent-info"><div class="recent-name">유기농 샴푸 상세페이지</div><div class="recent-meta">1 page · 어제</div></div></div>
+          <div class="recent-item"><div class="recent-thumb" style="background:linear-gradient(135deg,#FAE8FF,#FDF4FF);">📦</div><div class="recent-info"><div class="recent-name">수제 쿠키 박스</div><div class="recent-meta">3 panels · 3일 전</div></div></div>
+          <div class="recent-item"><div class="recent-thumb" style="background:linear-gradient(135deg,var(--s200),var(--s100));">📱</div><div class="recent-info"><div class="recent-name">브랜드 소개 카드뉴스</div><div class="recent-meta">4 slides · 1주 전</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRAND SETTINGS -->
+    <div class="page" id="page-brand">
+      <div class="page-pad">
+        <div class="page-header">
+          <div class="deco-line"></div>
+          <h1 class="page-title">브랜드 설정</h1>
+          <p class="page-sub">브랜드 프로필을 여러 개 만들고 디자인에 적용할 수 있어요.</p>
+        </div>
+
+        <!-- Brand profiles list -->
+        <div class="brand-list-header">
+          <div class="brand-list-title">내 브랜드</div>
+        </div>
+        <div class="brand-profiles-grid" id="brandProfilesGrid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Brand editor form -->
+        <div id="brandEditorForm">
+          <div class="brand-grid stagger">
+            <div class="brand-card brand-preview">
+              <div class="bp-swatch" id="bpSwatch" style="background:linear-gradient(135deg,var(--o500),var(--o600));"></div>
+              <div class="bp-info">
+                <div class="bp-name" id="bpName">Demo Brand</div>
+                <div class="bp-details">모던/깔끔 · 친근한 반말 · <span id="bpHex">#FF6B35</span></div>
+              </div>
+            </div>
+
+            <div class="brand-card full">
+              <div class="bc-label">브랜드명</div>
+              <input class="input-field" type="text" placeholder="예: Demo Brand" value="Demo Brand" id="brandNameInput" oninput="onBrandNameInput()">
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">메인 컬러</div>
+              <div class="color-swatches" id="mainColorSwatches">
+                <div class="color-swatch selected" style="background:#FF6B35" onclick="pickColor(this,'#FF6B35')"></div>
+                <div class="color-swatch" style="background:#1B2838" onclick="pickColor(this,'#1B2838')"></div>
+                <div class="color-swatch" style="background:#4ECDC4" onclick="pickColor(this,'#4ECDC4')"></div>
+                <div class="color-swatch" style="background:#D4A574" onclick="pickColor(this,'#D4A574')"></div>
+                <div class="color-swatch" style="background:#6366F1" onclick="pickColor(this,'#6366F1')"></div>
+                <div class="color-swatch" style="background:#EC4899" onclick="pickColor(this,'#EC4899')"></div>
+                <div class="color-swatch" style="background:#22C55E" onclick="pickColor(this,'#22C55E')"></div>
+                <div class="color-swatch" style="background:#0EA5E9" onclick="pickColor(this,'#0EA5E9')"></div>
+              </div>
+              <div class="color-hex">
+                <div class="color-hex-preview" id="colorPreview"></div>
+                <input type="text" value="#FF6B35" id="colorInput" oninput="updateColorPreview()">
+              </div>
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">서브 컬러</div>
+              <div class="color-swatches">
+                <div class="color-swatch selected" style="background:#FFB088"></div>
+                <div class="color-swatch" style="background:#94A3B8"></div>
+                <div class="color-swatch" style="background:#A7F3D0"></div>
+                <div class="color-swatch" style="background:#FDE68A"></div>
+              </div>
+              <div class="color-hex" style="margin-top:14px;">
+                <div class="color-hex-preview" style="background:#FFB088;"></div>
+                <input type="text" value="#FFB088">
+              </div>
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">폰트 스타일</div>
+              <div class="tone-options" id="fontStyleOptions">
+                <div class="tone-chip selected">모던/깔끔</div>
+                <div class="tone-chip">따뜻한/손글씨풍</div>
+                <div class="tone-chip">강렬한/볼드</div>
+              </div>
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">톤 & 매너</div>
+              <div class="tone-options" id="toneOptions">
+                <div class="tone-chip selected">친근한 반말</div>
+                <div class="tone-chip">격식체</div>
+                <div class="tone-chip">유쾌한</div>
+                <div class="tone-chip">프로페셔널</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="brand-save-row">
+            <button class="btn btn-primary" onclick="saveBrand()">💾 프로필 저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="page" id="page-editor">
+      <div class="editor-layout">
+        <div class="editor-panel">
+          <div class="editor-panel-header">
+            <div class="ep-title" id="editorTitle">카드뉴스 에디터</div>
+            <div class="ep-back" onclick="navigate('dashboard')">← 대시보드</div>
+          </div>
+
+          <!-- ═══ BRAND SELECTOR (shared across editors) ═══ -->
+          <div class="editor-section" data-editor="card-news" id="brand-selector-card">
+            <div class="es-title">브랜드 선택</div>
+            <div class="brand-chip-selector" id="brandChipsCard"></div>
+          </div>
+          <div class="editor-section" data-editor="detail-page" id="brand-selector-detail">
+            <div class="es-title">브랜드 선택</div>
+            <div class="brand-chip-selector" id="brandChipsDetail"></div>
+          </div>
+          <div class="editor-section" data-editor="package" id="brand-selector-pkg">
+            <div class="es-title">브랜드 선택</div>
+            <div class="brand-chip-selector" id="brandChipsPkg"></div>
+          </div>
+
+          <!-- ═══ SIZE SELECTOR: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="size-selector-card">
+            <div class="es-title">사이즈</div>
+            <div class="size-selector">
+              <input class="size-input" type="number" value="1080" id="cardWidth" onchange="updateCardSize()">
+              <span class="size-x">x</span>
+              <input class="size-input" type="number" value="1080" id="cardHeight" onchange="updateCardSize()">
+              <span style="font-size:12px;color:var(--s400);font-family:'JetBrains Mono';">px</span>
+            </div>
+            <div class="size-presets">
+              <button class="size-preset-btn active" onclick="setCardSize(1080,1080,this)">인스타 정사각</button>
+              <button class="size-preset-btn" onclick="setCardSize(1080,1350,this)">인스타 세로</button>
+              <button class="size-preset-btn" onclick="setCardSize(1200,628,this)">블로그 가로</button>
+              <button class="size-preset-btn" onclick="setCardSize(0,0,this)">커스텀</button>
+            </div>
+          </div>
+
+          <!-- ═══ MODE TOGGLE: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="mode-toggle-card">
+            <div class="es-title">모드</div>
+            <div class="mode-toggle">
+              <button class="mode-toggle-btn active" onclick="setCardMode('multi',this)">멀티 슬라이드</button>
+              <button class="mode-toggle-btn" onclick="setCardMode('single',this)">단일 이미지</button>
+            </div>
+          </div>
+
+          <!-- ═══ PRESETS: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="presets-card-news">
+            <div class="es-title">레이아웃 프리셋</div>
+            <div class="preset-grid">
+              <div class="preset-item selected" onclick="selectPreset(this,0)"><div class="pi-icon">📐</div><div class="pi-name">타이틀 중심</div></div>
+              <div class="preset-item" onclick="selectPreset(this,1)"><div class="pi-icon">🖼️</div><div class="pi-name">풀블리드</div></div>
+              <div class="preset-item" onclick="selectPreset(this,2)"><div class="pi-icon">📋</div><div class="pi-name">아이콘형</div></div>
+              <div class="preset-item" onclick="selectPreset(this,3)"><div class="pi-icon">⚡</div><div class="pi-name">비포/애프터</div></div>
+            </div>
+          </div>
+
+          <!-- ═══ PRESETS: Detail Page ═══ -->
+          <div class="editor-section" data-editor="detail-page" id="presets-detail-page">
+            <div class="es-title">레이아웃 프리셋</div>
+            <div class="preset-grid">
+              <div class="preset-item selected" onclick="selectDetailPreset(this,'hero')"><div class="pi-icon">🏔️</div><div class="pi-name">히어로 이미지형</div></div>
+              <div class="preset-item" onclick="selectDetailPreset(this,'steps')"><div class="pi-icon">👣</div><div class="pi-name">스텝 바이 스텝형</div></div>
+              <div class="preset-item" onclick="selectDetailPreset(this,'compare')"><div class="pi-icon">📊</div><div class="pi-name">비교표형</div></div>
+            </div>
+          </div>
+
+          <!-- ═══ PRESETS: Package ═══ -->
+          <div class="editor-section" data-editor="package" id="presets-package">
+            <div class="es-title">레이아웃 프리셋</div>
+            <div class="preset-grid">
+              <div class="preset-item selected" onclick="selectPkgPreset(this,'minimal')"><div class="pi-icon">◻️</div><div class="pi-name">미니멀형</div></div>
+              <div class="preset-item" onclick="selectPkgPreset(this,'illust')"><div class="pi-icon">🎨</div><div class="pi-name">일러스트형</div></div>
+              <div class="preset-item" onclick="selectPkgPreset(this,'photo')"><div class="pi-icon">📸</div><div class="pi-name">포토형</div></div>
+            </div>
+          </div>
+
+          <!-- ═══ SLIDE COUNT: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="inputs-card-news-count">
+            <div class="es-title" id="slideCountLabel">슬라이드 수</div>
+            <div class="slide-counter" id="slideCounterWrap">
+              <button class="counter-btn" onclick="changeCount(-1)">−</button>
+              <span class="counter-val" id="slideCount">5</span>
+              <button class="counter-btn" onclick="changeCount(1)">+</button>
+            </div>
+          </div>
+
+          <!-- ═══ FILE UPLOADS: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="inputs-card-news-uploads">
+            <div class="es-title">파일 업로드</div>
+            <label class="field-label">제품 사진</label>
+            <div class="file-drop" id="productPhotoDrop" onclick="simulateUpload('productPhotoDrop','productPhotoTag','📷 product_photo.jpg')">
+              <div class="file-drop-icon">📷</div>
+              <div class="file-drop-text">클릭하거나 파일을 드래그해주세요</div>
+            </div>
+            <div id="productPhotoTag" style="display:none;">
+              <div class="uploaded-tag">📷 product_photo.jpg <span class="remove-tag" onclick="removeUpload('productPhotoDrop','productPhotoTag')">✕</span></div>
+            </div>
+            <div style="margin-top:14px;">
+              <label class="field-label">로고</label>
+              <div class="file-drop-small" id="logoDrop" onclick="simulateUpload('logoDrop','logoTag','🏷️ logo.png')">
+                <div style="font-size:20px;margin-bottom:4px;">🏷️</div>
+                <div style="font-size:12px;color:var(--s400);">로고 파일 업로드</div>
+              </div>
+              <div id="logoTag" style="display:none;">
+                <div class="uploaded-tag">🏷️ logo.png <span class="remove-tag" onclick="removeUpload('logoDrop','logoTag')">✕</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ CONTENT INPUTS: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="inputs-card-news-content">
+            <div class="es-title">콘텐츠 입력</div>
+            <div class="content-block">
+              <label class="field-label">제목</label>
+              <input class="input-field" type="text" placeholder="예: 여름 신메뉴 출시" value="여름 신메뉴" id="cardTitle" oninput="updateCardPreview()">
+            </div>
+            <div class="content-block">
+              <label class="field-label">본문 내용</label>
+              <textarea class="editor-textarea" placeholder="본문 내용을 적어주세요" id="cardBody" oninput="updateCardPreview()" style="min-height:100px;">시원하고 달콤한 여름 한정 음료 3종</textarea>
+            </div>
+            <div class="content-block">
+              <label class="field-label">부가 정보 (가격, 날짜, 연락처 등)</label>
+              <input class="input-field" type="text" placeholder="예: 4,200원 / 7월 한정" value="" id="cardExtra" oninput="buildCardSlides()">
+            </div>
+            <div id="extraContentBlocks"></div>
+            <button class="add-content-btn" onclick="addContentBlock()">+ 내용 추가</button>
+          </div>
+
+          <!-- ═══ TEXT POSITION: Card News ═══ -->
+          <div class="editor-section" data-editor="card-news" id="inputs-card-news-position">
+            <div class="es-title">텍스트 위치</div>
+            <div class="position-grid" id="positionGrid">
+              <div class="position-cell" data-pos="top-left" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="top-center" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="top-right" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="middle-left" onclick="setTextPosition(this)"></div>
+              <div class="position-cell active" data-pos="center" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="middle-right" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="bottom-left" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="bottom-center" onclick="setTextPosition(this)"></div>
+              <div class="position-cell" data-pos="bottom-right" onclick="setTextPosition(this)"></div>
+            </div>
+          </div>
+
+          <!-- ═══ INPUTS: Detail Page ═══ -->
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-minheight">
+            <div class="es-title">최소 세로 사이즈</div>
+            <div class="min-height-row">
+              <input class="min-height-input" type="number" value="3000" id="dpMinHeight">
+              <span class="min-height-unit">px</span>
+            </div>
+            <div class="min-height-presets">
+              <button class="size-preset-btn" onclick="setDpMinHeight(2000,this)">짧게 (2000px)</button>
+              <button class="size-preset-btn active" onclick="setDpMinHeight(3000,this)">보통 (3000px)</button>
+              <button class="size-preset-btn" onclick="setDpMinHeight(5000,this)">길게 (5000px)</button>
+            </div>
+          </div>
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-name">
+            <label class="field-label">제품/서비스 이름</label>
+            <input class="input-field" type="text" placeholder="예: 유기농 아보카도 샴푸" value="유기농 아보카도 샴푸" id="dpProductName" oninput="updateDetailPreview()">
+          </div>
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-selling">
+            <label class="field-label">핵심 셀링 포인트</label>
+            <textarea class="editor-textarea" placeholder="주요 판매 포인트를 적어주세요" id="dpSellingPoints" oninput="updateDetailPreview()">EWG 그린등급 원료만 사용
+두피 자극 테스트 완료
+아보카도 오일 72% 함유</textarea>
+          </div>
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-price">
+            <label class="field-label">가격</label>
+            <input class="input-field" type="text" placeholder="예: 29,800원" value="29,800원" id="dpPrice" oninput="updateDetailPreview()">
+          </div>
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-target">
+            <label class="field-label">타겟 고객</label>
+            <input class="input-field" type="text" placeholder="예: 두피 고민이 있는 20-40대" value="두피 고민이 있는 20-40대" id="dpTarget">
+          </div>
+
+          <!-- ═══ REFERENCE LINKS: Detail Page ═══ -->
+          <div class="editor-section" data-editor="detail-page" id="inputs-dp-refs">
+            <div class="es-title">레퍼런스 링크</div>
+            <div class="ref-link-input-row">
+              <input class="ref-link-input" type="text" placeholder="https://example.com" id="dpRefInput">
+              <button class="ref-link-add-btn" onclick="addDpRefLink()">추가</button>
+            </div>
+            <div class="ref-links-list" id="dpRefLinks"></div>
+            <div class="ref-note">첨부한 레퍼런스를 분석하여 레이아웃, 색상, 구성을 참고합니다</div>
+            <div class="ref-analysis" id="dpRefAnalysis" style="display:none;">
+              <div class="ref-analysis-title">레퍼런스 분석 결과</div>
+              <div class="ref-analysis-text" id="dpRefAnalysisText">3개 레퍼런스에서 공통 패턴 발견: 히어로 이미지 + 3단 구성 + 리뷰 섹션</div>
+              <div class="ref-analysis-tags">
+                <span class="ref-analysis-tag">히어로 배너</span>
+                <span class="ref-analysis-tag">3단 그리드</span>
+                <span class="ref-analysis-tag">고객 리뷰</span>
+                <span class="ref-analysis-tag">CTA 버튼</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ INPUTS: Package ═══ -->
+          <!-- Die-cut file upload -->
+          <div class="editor-section" data-editor="package" id="inputs-pkg-dieline">
+            <div class="es-title">칼선 파일 업로드</div>
+            <div class="file-drop-large" id="dielineDrop" onclick="simulateUploadLarge('dielineDrop','dielineTag')">
+              <div style="font-size:28px;margin-bottom:6px;">📐</div>
+              <div class="fd-label">칼선 파일 업로드</div>
+              <div class="fd-desc">AI/PDF/SVG 파일을 업로드하면 칼선에 맞춰 디자인합니다</div>
+            </div>
+            <div id="dielineTag" style="display:none;">
+              <div class="uploaded-tag">📐 dieline_box.ai <span class="remove-tag" onclick="removeUploadLarge('dielineDrop','dielineTag')">✕</span></div>
+            </div>
+          </div>
+
+          <div class="editor-section" data-editor="package" id="inputs-pkg-name">
+            <label class="field-label">제품명</label>
+            <input class="input-field" type="text" placeholder="예: 수제 초코 쿠키" value="수제 초코 쿠키" id="pkgProductName" oninput="updatePkgPreview()">
+          </div>
+          <div class="editor-section" data-editor="package" id="inputs-pkg-category">
+            <label class="field-label">제품 카테고리</label>
+            <select class="editor-select" id="pkgCategory">
+              <option value="food">식품</option>
+              <option value="cosmetic">화장품</option>
+              <option value="health">건강기능식품</option>
+              <option value="beverage">음료</option>
+              <option value="other">기타</option>
+            </select>
+          </div>
+          <div class="editor-section" data-editor="package" id="inputs-pkg-type">
+            <label class="field-label">패키지 유형</label>
+            <select class="editor-select" id="pkgType">
+              <option value="box">박스형</option>
+              <option value="pouch">파우치</option>
+              <option value="bottle">보틀</option>
+              <option value="can">캔</option>
+              <option value="tube">튜브</option>
+            </select>
+          </div>
+          <div class="editor-section" data-editor="package" id="inputs-pkg-weight">
+            <label class="field-label">내용량</label>
+            <input class="input-field" type="text" placeholder="예: 250g" value="250g" id="pkgWeight" oninput="updatePkgPreview()">
+          </div>
+          <div class="editor-section" data-editor="package" id="inputs-pkg-ingredients">
+            <label class="field-label">주요 성분</label>
+            <textarea class="editor-textarea" placeholder="주요 성분을 적어주세요" id="pkgIngredients" oninput="updatePkgPreview()">밀가루, 버터, 코코아, 설탕, 달걀</textarea>
+          </div>
+
+          <!-- Reference images for package -->
+          <div class="editor-section" data-editor="package" id="inputs-pkg-refs">
+            <div class="es-title">레퍼런스 이미지</div>
+            <div class="ref-thumbnails" id="pkgRefThumbs">
+              <div class="ref-thumb-card">🖼️<button class="remove-thumb" onclick="this.parentElement.remove()">✕</button></div>
+              <div class="ref-thumb-card">🎨<button class="remove-thumb" onclick="this.parentElement.remove()">✕</button></div>
+            </div>
+            <button class="add-ref-btn" onclick="addPkgRefThumb()">📎 레퍼런스 추가</button>
+          </div>
+
+          <!-- Planning doc for package -->
+          <div class="editor-section" data-editor="package" id="inputs-pkg-plan">
+            <div class="es-title">기획안 첨부</div>
+            <div class="file-drop-small" id="planDocDrop" onclick="simulateUpload('planDocDrop','planDocTag','📄 패키지_기획안_v2.pdf')">
+              <div style="font-size:20px;margin-bottom:4px;">📋</div>
+              <div style="font-size:12px;color:var(--s400);">기획안 첨부 (PDF, DOC, 이미지)</div>
+            </div>
+            <div id="planDocTag" style="display:none;">
+              <div class="uploaded-tag">📄 패키지_기획안_v2.pdf <span class="remove-tag" onclick="removeUpload('planDocDrop','planDocTag')">✕</span></div>
+            </div>
+          </div>
+
+          <button class="btn-generate" id="generateBtn" onclick="startGenerate()">
+            <span class="btn-text">✨ 디자인 생성하기</span>
+            <div class="spinner"><div class="spin-icon"></div> 생성 중...</div>
+            <div class="progress-bar" id="progressBar"></div>
+          </button>
+        </div>
+
+        <div class="editor-preview">
+          <div class="preview-container">
+
+            <!-- ═══ PREVIEW: Card News ═══ -->
+            <div class="preview-area active" id="preview-card-news">
+              <div class="preview-frame" id="previewFrame">
+                <div class="preview-slides" id="previewSlides">
+                  <!-- Slide 1: Title Center -->
+                  <div class="preview-slide slide-title-center" id="cardSlide1">
+                    <div class="ps-label">NEW MENU</div>
+                    <div class="ps-line"></div>
+                    <div class="ps-title" id="pvTitle">여름 신메뉴</div>
+                    <div class="ps-line"></div>
+                    <div class="ps-sub" id="pvSub">시원하고 달콤한 여름 한정 음료 3종</div>
+                    <div class="slide-dots" id="slideDots">
+                      <div class="s-dot active" onclick="goSlide(0)"></div>
+                      <div class="s-dot" onclick="goSlide(1)"></div>
+                      <div class="s-dot" onclick="goSlide(2)"></div>
+                      <div class="s-dot" onclick="goSlide(3)"></div>
+                      <div class="s-dot" onclick="goSlide(4)"></div>
+                    </div>
+                  </div>
+                  <!-- Slide 2: Icon List -->
+                  <div class="preview-slide slide-icon-list">
+                    <div class="ps-section-title">이번 여름, 꼭 마셔봐야 할 3가지</div>
+                    <div class="icon-row"><div class="icon-circle">🍑</div><div class="icon-text"><h4>피치 아이스티</h4><p>국내산 복숭아를 통째로</p></div></div>
+                    <div class="icon-row"><div class="icon-circle">🥭</div><div class="icon-text"><h4>망고 요거트 스무디</h4><p>리얼 망고 퓨레와 그릭 요거트</p></div></div>
+                    <div class="icon-row"><div class="icon-circle">🫐</div><div class="icon-text"><h4>블루베리 에이드</h4><p>톡톡 터지는 블루베리</p></div></div>
+                    <div class="slide-dots"><div class="s-dot" onclick="goSlide(0)"></div><div class="s-dot active" onclick="goSlide(1)"></div><div class="s-dot" onclick="goSlide(2)"></div><div class="s-dot" onclick="goSlide(3)"></div><div class="s-dot" onclick="goSlide(4)"></div></div>
+                  </div>
+                  <!-- Slide 3: Fullbleed -->
+                  <div class="preview-slide slide-fullbleed">
+                    <div class="ps-emoji">🍑</div>
+                    <div class="ps-title">피치 아이스티</div>
+                    <div class="ps-sub">프리미엄 황도 복숭아 아이스티</div>
+                    <div class="price-tag"><span class="price-old">5,500원</span><span class="price-new">4,200원</span></div>
+                    <div class="slide-dots"><div class="s-dot" onclick="goSlide(0)"></div><div class="s-dot" onclick="goSlide(1)"></div><div class="s-dot active" onclick="goSlide(2)"></div><div class="s-dot" onclick="goSlide(3)"></div><div class="s-dot" onclick="goSlide(4)"></div></div>
+                  </div>
+                  <!-- Slide 4: Compare -->
+                  <div class="preview-slide slide-compare">
+                    <div class="compare-side compare-left">
+                      <div class="compare-label">BEFORE</div>
+                      <div class="compare-emoji">😫</div>
+                      <div class="compare-title">무더운 여름<br>입맛이 없을 때</div>
+                      <div class="compare-desc">매일 같은 커피만<br>마시고 있진 않나요?</div>
+                    </div>
+                    <div class="compare-side compare-right">
+                      <div class="compare-label">AFTER</div>
+                      <div class="compare-emoji">😍</div>
+                      <div class="compare-title">상큼한 과일로<br>기분 전환!</div>
+                      <div class="compare-desc">신선한 과일 음료로<br>여름을 시원하게</div>
+                    </div>
+                    <div class="slide-dots" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);"><div class="s-dot" onclick="goSlide(0)"></div><div class="s-dot" onclick="goSlide(1)"></div><div class="s-dot" onclick="goSlide(2)"></div><div class="s-dot active" onclick="goSlide(3)"></div><div class="s-dot" onclick="goSlide(4)"></div></div>
+                  </div>
+                  <!-- Slide 5: CTA -->
+                  <div class="preview-slide slide-cta">
+                    <div class="ps-small">여름 한정 메뉴를 만나보세요</div>
+                    <div class="ps-title">지금 바로<br>주문하세요!</div>
+                    <div class="cta-btn">매장 찾기 →</div>
+                    <div class="slide-dots"><div class="s-dot" onclick="goSlide(0)"></div><div class="s-dot" onclick="goSlide(1)"></div><div class="s-dot" onclick="goSlide(2)"></div><div class="s-dot" onclick="goSlide(3)"></div><div class="s-dot active" onclick="goSlide(4)"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="preview-nav" id="previewNav">
+                <button class="pn-btn" onclick="prevSlide()">‹</button>
+                <button class="pn-btn" onclick="nextSlide()">›</button>
+              </div>
+            </div>
+
+            <!-- ═══ PREVIEW: Detail Page ═══ -->
+            <div class="preview-area" id="preview-detail-page">
+              <div class="preview-frame detail-mode" id="detailFrame">
+                <div class="detail-scroll-wrap" id="detailScrollWrap">
+
+                  <!-- Hero Image Preset -->
+                  <div class="detail-page-inner" id="dp-preset-hero">
+                    <div class="dp-hero-banner">
+                      <div class="dp-tag">BEST SELLER</div>
+                      <div class="dp-title" id="dpPvTitle">유기농 아보카도 샴푸</div>
+                      <div class="dp-price" id="dpPvPrice">29,800원</div>
+                    </div>
+                    <div class="dp-section">
+                      <div class="dp-section-title">왜 이 제품이 특별한가요?</div>
+                      <div class="dp-features">
+                        <div class="dp-feature"><div class="dp-feature-icon">🌿</div><div class="dp-feature-label">EWG 그린등급</div></div>
+                        <div class="dp-feature"><div class="dp-feature-icon">🧪</div><div class="dp-feature-label">자극 테스트 완료</div></div>
+                        <div class="dp-feature"><div class="dp-feature-icon">🥑</div><div class="dp-feature-label">아보카도 72%</div></div>
+                      </div>
+                    </div>
+                    <div class="dp-alt-row">
+                      <div class="dp-alt-img" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);">🌱</div>
+                      <div class="dp-alt-text"><h4>자연에서 온 원료</h4><p>유기농 인증 농장에서 재배한 아보카도만을 사용하여 두피에 영양을 공급합니다.</p></div>
+                    </div>
+                    <div class="dp-alt-row reverse">
+                      <div class="dp-alt-img" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);">💧</div>
+                      <div class="dp-alt-text"><h4>깊은 보습 효과</h4><p>아보카도 오일이 모발 깊숙이 침투하여 건조한 두피와 모발에 수분을 채워줍니다.</p></div>
+                    </div>
+                    <div class="dp-alt-row">
+                      <div class="dp-alt-img" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);">✨</div>
+                      <div class="dp-alt-text"><h4>실크같은 마무리</h4><p>사용 직후부터 느껴지는 부드러운 모발 결과 윤기나는 마무리감을 경험해보세요.</p></div>
+                    </div>
+                    <div class="dp-reviews">
+                      <div class="dp-section-title" style="padding:0 0 10px;">실제 사용 후기</div>
+                      <div class="dp-review">
+                        <div class="dp-review-stars">★★★★★</div>
+                        <div class="dp-review-text">"두피 가려움이 정말 사라졌어요! 향도 은은해서 좋아요."</div>
+                        <div class="dp-review-author">@beauty_jin · 2주 전</div>
+                      </div>
+                      <div class="dp-review">
+                        <div class="dp-review-stars">★★★★★</div>
+                        <div class="dp-review-text">"건조한 머리카락이 부드러워졌어요. 재구매 확정입니다!"</div>
+                        <div class="dp-review-author">@hair_love · 1개월 전</div>
+                      </div>
+                    </div>
+                    <div class="dp-cta-section">
+                      <div style="font-size:12px;color:var(--s400);margin-bottom:10px;">지금 주문하면 무료배송</div>
+                      <div class="dp-cta-btn">구매하기 →</div>
+                    </div>
+                  </div>
+
+                  <!-- Step by Step Preset -->
+                  <div class="detail-page-inner" id="dp-preset-steps" style="display:none;">
+                    <div class="dp-overview">
+                      <div class="dp-overview-emoji">🥑</div>
+                      <div class="dp-overview-name" id="dpPvTitleSteps">유기농 아보카도 샴푸</div>
+                      <div class="dp-overview-desc">건강한 두피를 위한 3단계 케어</div>
+                    </div>
+                    <div class="dp-steps">
+                      <div class="dp-step">
+                        <div class="dp-step-circle">1</div>
+                        <div class="dp-step-content">
+                          <h4>미온수로 두피를 충분히 적셔주세요</h4>
+                          <p>38~40도의 미온수로 두피와 모발을 1-2분간 충분히 적셔 노폐물을 불려줍니다.</p>
+                        </div>
+                        <div class="dp-step-line"></div>
+                      </div>
+                      <div class="dp-step">
+                        <div class="dp-step-circle">2</div>
+                        <div class="dp-step-content">
+                          <h4>적당량을 손에서 거품 낸 후 마사지</h4>
+                          <p>500원 동전 크기만큼 덜어 거품을 낸 후, 두피를 부드럽게 마사지해주세요.</p>
+                        </div>
+                        <div class="dp-step-line"></div>
+                      </div>
+                      <div class="dp-step">
+                        <div class="dp-step-circle">3</div>
+                        <div class="dp-step-content">
+                          <h4>깨끗이 헹구고 마무리</h4>
+                          <p>잔여물이 남지 않도록 충분히 헹궈주세요. 주 3~4회 사용을 권장합니다.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="dp-section" style="text-align:center;">
+                      <div style="font-size:11px;color:var(--s400);margin-bottom:6px;">사용 4주 후 두피 개선율</div>
+                      <div style="font-family:'Outfit';font-size:36px;font-weight:800;color:var(--o500);">87%</div>
+                      <div style="font-size:10px;color:var(--s400);margin-top:2px;">*인체적용시험 결과 (n=124)</div>
+                    </div>
+                    <div class="dp-cta-section">
+                      <div style="font-size:12px;color:var(--s400);margin-bottom:10px;">건강한 두피의 시작</div>
+                      <div class="dp-cta-btn">구매하기 →</div>
+                    </div>
+                  </div>
+
+                  <!-- Comparison Preset -->
+                  <div class="detail-page-inner" id="dp-preset-compare" style="display:none;">
+                    <div class="dp-comp-header">
+                      <h3 id="dpPvTitleComp">왜 이 제품인가요?</h3>
+                      <p>유기농 아보카도 샴푸 vs 일반 샴푸</p>
+                    </div>
+                    <div class="dp-comp-table">
+                      <div class="dp-comp-row header">
+                        <div class="dp-comp-cell">항목</div>
+                        <div class="dp-comp-cell">일반 샴푸</div>
+                        <div class="dp-comp-cell">아보카도 샴푸</div>
+                      </div>
+                      <div class="dp-comp-row">
+                        <div class="dp-comp-cell" style="font-weight:600;">원료 등급</div>
+                        <div class="dp-comp-cell">EWG 미표기</div>
+                        <div class="dp-comp-cell highlight">EWG 그린등급</div>
+                      </div>
+                      <div class="dp-comp-row">
+                        <div class="dp-comp-cell" style="font-weight:600;">보습력</div>
+                        <div class="dp-comp-cell">보통</div>
+                        <div class="dp-comp-cell highlight">72% 아보카도</div>
+                      </div>
+                      <div class="dp-comp-row">
+                        <div class="dp-comp-cell" style="font-weight:600;">두피 자극</div>
+                        <div class="dp-comp-cell">테스트 없음</div>
+                        <div class="dp-comp-cell highlight">자극 0%</div>
+                      </div>
+                      <div class="dp-comp-row">
+                        <div class="dp-comp-cell" style="font-weight:600;">향료</div>
+                        <div class="dp-comp-cell">합성 향료</div>
+                        <div class="dp-comp-cell highlight">천연 에센셜 오일</div>
+                      </div>
+                    </div>
+                    <div class="dp-diff-section">
+                      <div class="dp-section-title">차별화 포인트</div>
+                      <div class="dp-diff-item">
+                        <div class="dp-diff-check">✓</div>
+                        <div class="dp-diff-text">EWG 그린등급 원료만을 사용한 안심 포뮬러</div>
+                      </div>
+                      <div class="dp-diff-item">
+                        <div class="dp-diff-check">✓</div>
+                        <div class="dp-diff-text">피부과 전문의 두피 자극 테스트 완료</div>
+                      </div>
+                      <div class="dp-diff-item">
+                        <div class="dp-diff-check">✓</div>
+                        <div class="dp-diff-text">유기농 아보카도 오일 72% 고함량 배합</div>
+                      </div>
+                    </div>
+                    <div class="dp-cta-section">
+                      <div style="font-size:12px;color:var(--s400);margin-bottom:10px;">현명한 선택을 하세요</div>
+                      <div class="dp-cta-btn">구매하기 →</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ PREVIEW: Package ═══ -->
+            <div class="preview-area" id="preview-package">
+              <div class="preview-frame package-mode" id="packageFrame">
+                <div class="pkg-tabs">
+                  <div class="pkg-tab active" onclick="switchPkgPanel('front')">
+                    <div>Front</div>
+                    <div class="pkg-tab-label">앞면</div>
+                  </div>
+                  <div class="pkg-tab" onclick="switchPkgPanel('back')">
+                    <div>Back</div>
+                    <div class="pkg-tab-label">뒷면</div>
+                  </div>
+                  <div class="pkg-tab" onclick="switchPkgPanel('side')">
+                    <div>Side</div>
+                    <div class="pkg-tab-label">옆면</div>
+                  </div>
+                </div>
+
+                <!-- Front Panel -->
+                <div class="pkg-panel active" data-panel="front">
+                  <div class="pkg-canvas">
+                    <div class="pkg-safe-zone"><div class="pkg-safe-label">SAFE</div></div>
+                    <div class="pkg-inner">
+                      <div class="pkg-logo-area">LOGO</div>
+                      <div class="pkg-front-visual">🍪</div>
+                      <div class="pkg-product-name" id="pkgPvName">수제 초코 쿠키</div>
+                      <div class="pkg-variant">Original · Dark Chocolate</div>
+                      <div class="pkg-weight" id="pkgPvWeight">Net. 250g</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Back Panel -->
+                <div class="pkg-panel" data-panel="back">
+                  <div class="pkg-canvas">
+                    <div class="pkg-safe-zone"><div class="pkg-safe-label">SAFE</div></div>
+                    <div class="pkg-back-inner">
+                      <div class="pkg-back-title">영양 정보 / 성분</div>
+                      <table class="pkg-ingredients-table">
+                        <tr><th>성분</th><th>함량</th><th>비율</th></tr>
+                        <tr><td>밀가루</td><td>80g</td><td>32%</td></tr>
+                        <tr><td>버터</td><td>50g</td><td>20%</td></tr>
+                        <tr><td>코코아</td><td>40g</td><td>16%</td></tr>
+                        <tr><td>설탕</td><td>45g</td><td>18%</td></tr>
+                        <tr><td>달걀</td><td>35g</td><td>14%</td></tr>
+                      </table>
+                      <div class="pkg-usage">
+                        <div class="pkg-usage-title">섭취 / 사용 방법</div>
+                        개봉 후 그대로 드시면 됩니다. 직사광선을 피해 서늘한 곳에 보관해주세요. 개봉 후에는 가능한 빨리 섭취해주세요.
+                      </div>
+                      <div class="pkg-barcode">
+                        <div class="pkg-barcode-lines">
+                          <span style="height:20px"></span><span style="height:24px;width:1px"></span><span style="height:18px"></span><span style="height:24px"></span><span style="height:16px;width:1px"></span><span style="height:22px"></span><span style="height:24px"></span><span style="height:14px"></span><span style="height:20px;width:1px"></span><span style="height:24px"></span><span style="height:18px"></span><span style="height:22px;width:1px"></span><span style="height:16px"></span><span style="height:24px"></span><span style="height:20px"></span><span style="height:14px;width:1px"></span><span style="height:24px"></span><span style="height:18px"></span><span style="height:22px"></span><span style="height:16px;width:1px"></span><span style="height:24px"></span><span style="height:20px"></span><span style="height:24px;width:1px"></span><span style="height:14px"></span>
+                        </div>
+                        <div class="pkg-barcode-num">8 801234 567890</div>
+                      </div>
+                      <div class="pkg-legal">제조원: Demo Brand Co., Ltd. | 서울특별시 강남구<br>소비자 상담실: 1588-0000 | 유통기한: 별도 표기</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Side Panel -->
+                <div class="pkg-panel" data-panel="side">
+                  <div class="pkg-canvas side-panel">
+                    <div class="pkg-safe-zone"><div class="pkg-safe-label">SAFE</div></div>
+                    <div class="pkg-side-inner">
+                      <div class="pkg-side-tagline">Handmade with Love</div>
+                      <div class="pkg-side-selling">정성을 담아 하나하나 수제로 만든 프리미엄 쿠키</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="status-bar">
+            <div class="status-left">
+              <div class="status-dot"></div>
+              <span id="statusSize">1080 x 1080</span>
+              <span>·</span>
+              <span id="statusSlide">Slide 1 / 5</span>
+            </div>
+            <div id="statusBrand" style="font-size:12px;color:var(--s400);font-family:'JetBrains Mono';">Demo Brand · #FF6B35</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="page" id="page-results">
+      <div class="page-pad">
+        <div class="page-header">
+          <div class="deco-line"></div>
+          <h1 class="page-title" id="resultsTitle">생성 완료!</h1>
+          <p class="page-sub" id="resultsSub">5장의 카드뉴스가 생성되었어요. 클릭하면 크게 볼 수 있어요.</p>
+        </div>
+
+        <!-- Card News Results (dynamically generated) -->
+        <div class="results-grid stagger" id="results-card-news"></div>
+
+        <!-- Detail Page Results -->
+        <div class="results-grid detail-results stagger" id="results-detail-page" style="display:none;">
+          <div class="result-card" onclick="openModalDetail()">
+            <div class="result-thumb tall" style="background:linear-gradient(180deg,var(--o500) 0%,var(--o50) 30%,white 30%);">
+              <div class="result-thumb-inner" style="background:transparent;justify-content:flex-start;padding-top:30px;">
+                <div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:700;font-family:'Outfit';letter-spacing:.08em;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:10px;">BEST SELLER</div>
+                <div style="font-size:18px;font-weight:800;color:white;margin-top:8px;text-align:center;font-family:'Outfit';">유기농 아보카도<br>샴푸</div>
+                <div style="margin-top:16px;display:flex;gap:6px;">
+                  <div style="width:28px;height:28px;border-radius:8px;background:var(--o50);display:flex;align-items:center;justify-content:center;font-size:14px;">🌿</div>
+                  <div style="width:28px;height:28px;border-radius:8px;background:var(--o50);display:flex;align-items:center;justify-content:center;font-size:14px;">🧪</div>
+                  <div style="width:28px;height:28px;border-radius:8px;background:var(--o50);display:flex;align-items:center;justify-content:center;font-size:14px;">🥑</div>
+                </div>
+                <div style="margin-top:12px;font-size:10px;color:var(--s400);text-align:center;line-height:1.6;">
+                  히어로 배너 → 특징 → 후기 → CTA
+                </div>
+              </div>
+              <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
+            </div>
+            <div class="result-info"><div class="result-name">detail-page.png</div><div class="result-size">860x2580 · 1.2MB</div></div>
+          </div>
+        </div>
+
+        <!-- Package Results -->
+        <div class="results-grid package-results stagger" id="results-package" style="display:none;">
+          <div class="result-card" onclick="openModalPkg('front')">
+            <div class="result-thumb pkg-thumb" style="background:var(--s50);">
+              <div class="result-thumb-inner" style="background:white;border:1.5px dashed var(--s200);">
+                <div style="font-size:8px;color:var(--s400);font-family:'Outfit';letter-spacing:.1em;font-weight:700;">FRONT</div>
+                <div style="font-size:32px;margin:8px 0;">🍪</div>
+                <div style="font-size:13px;font-weight:800;color:var(--s900);font-family:'Outfit';">수제 초코 쿠키</div>
+                <div style="font-size:9px;color:var(--s400);margin-top:4px;font-family:'JetBrains Mono';">250g</div>
+              </div>
+              <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
+            </div>
+            <div class="result-info"><div class="result-name">package-front.png</div><div class="result-size">210x297mm · 4.2MB</div></div>
+          </div>
+          <div class="result-card" onclick="openModalPkg('back')">
+            <div class="result-thumb pkg-thumb" style="background:var(--s50);">
+              <div class="result-thumb-inner" style="background:white;border:1.5px dashed var(--s200);">
+                <div style="font-size:8px;color:var(--s400);font-family:'Outfit';letter-spacing:.1em;font-weight:700;">BACK</div>
+                <div style="margin:8px 0;font-size:9px;color:var(--s600);line-height:1.6;text-align:center;">영양 정보<br>성분 표시<br>바코드</div>
+                <div style="width:40px;height:18px;background:var(--s100);border-radius:2px;display:flex;align-items:center;justify-content:center;margin-top:4px;">
+                  <div style="display:flex;gap:1px;height:12px;align-items:flex-end;"><span style="display:block;width:1px;height:10px;background:var(--s800);"></span><span style="display:block;width:1px;height:12px;background:var(--s800);"></span><span style="display:block;width:1px;height:8px;background:var(--s800);"></span><span style="display:block;width:1px;height:12px;background:var(--s800);"></span><span style="display:block;width:1px;height:10px;background:var(--s800);"></span><span style="display:block;width:1px;height:6px;background:var(--s800);"></span></div>
+                </div>
+              </div>
+              <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
+            </div>
+            <div class="result-info"><div class="result-name">package-back.png</div><div class="result-size">210x297mm · 3.8MB</div></div>
+          </div>
+          <div class="result-card" onclick="openModalPkg('side')">
+            <div class="result-thumb pkg-thumb" style="background:var(--s50);">
+              <div class="result-thumb-inner" style="background:white;border:1.5px dashed var(--s200);width:50%;">
+                <div style="font-size:8px;color:var(--s400);font-family:'Outfit';letter-spacing:.1em;font-weight:700;">SIDE</div>
+                <div style="font-size:10px;color:var(--s600);margin-top:8px;writing-mode:vertical-rl;transform:rotate(180deg);height:60px;display:flex;align-items:center;font-weight:600;">Handmade with Love</div>
+              </div>
+              <div class="result-overlay"><button class="rbtn primary">다운로드</button><button class="rbtn secondary">편집</button></div>
+            </div>
+            <div class="result-info"><div class="result-name">package-side.png</div><div class="result-size">70x297mm · 1.5MB</div></div>
+          </div>
+        </div>
+
+        <div class="results-actions">
+          <button class="btn btn-primary">📥 전체 다운로드 (ZIP)</button>
+          <button class="btn btn-secondary">🔄 다시 생성</button>
+          <button class="btn btn-ghost" onclick="navigate('editor')">← 에디터로 돌아가기</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- FULLSCREEN MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-content" id="modalContent"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let currentEditorType = 'card-news';
+let currentDetailPreset = 'hero';
+let currentPkgPreset = 'minimal';
+let currentPkgPanel = 'front';
+let cardMode = 'multi'; // 'multi' or 'single'
+let textPosition = 'center';
+let selectedBrandIndex = 0;
+
+// ═══════════════════════════════════════════════
+// BRANDS DATA
+// ═══════════════════════════════════════════════
+let brands = [
+  { name: 'Demo Brand', color: '#FF6B35', subColor: '#FFB088', font: '모던/깔끔', tone: '친근한 반말' },
+  { name: 'Fresh Juice', color: '#22C55E', subColor: '#A7F3D0', font: '따뜻한/손글씨풍', tone: '유쾌한' }
+];
+let editingBrandIndex = 0;
+
+function renderBrandProfiles() {
+  const grid = document.getElementById('brandProfilesGrid');
+  grid.innerHTML = '';
+  brands.forEach((b, i) => {
+    const card = document.createElement('div');
+    card.className = 'brand-profile-card' + (i === editingBrandIndex ? ' selected' : '');
+    card.innerHTML = `
+      <button class="bpc-delete" onclick="event.stopPropagation();deleteBrand(${i})">✕</button>
+      <div class="bpc-top">
+        <div class="bpc-swatch" style="background:linear-gradient(135deg,${b.color},${b.color}dd);"></div>
+        <div>
+          <div class="bpc-name">${b.name}</div>
+          <div class="bpc-font">${b.font}</div>
+        </div>
+      </div>
+    `;
+    card.onclick = () => editBrand(i);
+    grid.appendChild(card);
+  });
+  // Add button
+  const addCard = document.createElement('div');
+  addCard.className = 'brand-add-card';
+  addCard.innerHTML = '<div class="bac-icon">+</div><div class="bac-text">새 브랜드</div>';
+  addCard.onclick = addNewBrand;
+  grid.appendChild(addCard);
+}
+
+function editBrand(idx) {
+  editingBrandIndex = idx;
+  const b = brands[idx];
+  document.getElementById('brandNameInput').value = b.name;
+  document.getElementById('colorInput').value = b.color;
+  document.getElementById('colorPreview').style.background = b.color;
+  document.getElementById('bpSwatch').style.background = `linear-gradient(135deg,${b.color},${b.color}dd)`;
+  document.getElementById('bpName').textContent = b.name;
+  document.getElementById('bpHex').textContent = b.color;
+  // select swatch
+  document.querySelectorAll('#mainColorSwatches .color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.style.background.includes(b.color) || rgbToHex(s.style.backgroundColor) === b.color.toUpperCase());
+  });
+  // select font style
+  document.querySelectorAll('#fontStyleOptions .tone-chip').forEach(c => {
+    c.classList.toggle('selected', c.textContent === b.font);
+  });
+  // select tone
+  document.querySelectorAll('#toneOptions .tone-chip').forEach(c => {
+    c.classList.toggle('selected', c.textContent === b.tone);
+  });
+  renderBrandProfiles();
+}
+
+function deleteBrand(idx) {
+  if (brands.length <= 1) return;
+  brands.splice(idx, 1);
+  if (editingBrandIndex >= brands.length) editingBrandIndex = brands.length - 1;
+  if (selectedBrandIndex >= brands.length) selectedBrandIndex = brands.length - 1;
+  editBrand(editingBrandIndex);
+  renderBrandChips();
+}
+
+function addNewBrand() {
+  const newBrand = { name: '새 브랜드', color: '#6366F1', subColor: '#C7D2FE', font: '모던/깔끔', tone: '격식체' };
+  brands.push(newBrand);
+  editBrand(brands.length - 1);
+  renderBrandChips();
+}
+
+function rgbToHex(rgb) {
+  if (!rgb || rgb.startsWith('#')) return (rgb || '').toUpperCase();
+  const parts = rgb.match(/\d+/g);
+  if (!parts || parts.length < 3) return '';
+  return '#' + parts.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+// ═══════════════════════════════════════════════
+// BRAND CHIPS (Editor)
+// ═══════════════════════════════════════════════
+function renderBrandChips() {
+  ['brandChipsCard', 'brandChipsDetail', 'brandChipsPkg'].forEach(containerId => {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+    brands.forEach((b, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'brand-chip' + (i === selectedBrandIndex ? ' active' : '');
+      chip.innerHTML = `<div class="brand-chip-dot" style="background:${b.color};"></div>${b.name}`;
+      chip.onclick = () => selectEditorBrand(i);
+      el.appendChild(chip);
+    });
+  });
+  updateStatusBrand();
+}
+
+function selectEditorBrand(idx) {
+  selectedBrandIndex = idx;
+  renderBrandChips();
+  updateStatusBrand();
+  applyBrandToPreview();
+}
+
+function updateStatusBrand() {
+  const b = brands[selectedBrandIndex];
+  if (b) {
+    const el = document.getElementById('statusBrand');
+    if (el) el.textContent = b.name + ' · ' + b.color;
+  }
+}
+
+function applyBrandToPreview() {
+  const b = brands[selectedBrandIndex];
+  if (!b) return;
+  const c = b.color;
+  // Update CSS custom properties on preview areas so all brand colors update live
+  document.documentElement.style.setProperty('--o500', c);
+  // Generate lighter/darker variants
+  const r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), bl = parseInt(c.slice(5,7),16);
+  const light = `rgba(${r},${g},${bl},0.08)`;
+  const lighter = `rgba(${r},${g},${bl},0.15)`;
+  document.documentElement.style.setProperty('--o50', light);
+  document.documentElement.style.setProperty('--o100', lighter);
+  // Update preview frame elements that use inline brand colors
+  document.querySelectorAll('.slide-title-center').forEach(el => el.style.background = light);
+  document.querySelectorAll('.slide-fullbleed').forEach(el => el.style.background = `linear-gradient(135deg, ${c}, ${c}aa)`);
+  document.querySelectorAll('.slide-cta').forEach(el => el.style.background = c);
+  document.querySelectorAll('.ps-line').forEach(el => el.style.background = c);
+  document.querySelectorAll('.icon-circle').forEach(el => el.style.background = light);
+  document.querySelectorAll('.compare-right').forEach(el => el.style.background = light);
+  document.querySelectorAll('.s-dot.active').forEach(el => el.style.background = c);
+  // Status bar brand dot
+  const statusBrandEl = document.getElementById('statusBrand');
+  if (statusBrandEl) statusBrandEl.textContent = b.name + ' · ' + c;
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function navigate(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${id}"]`)?.classList.add('active');
+  if (id === 'brand') {
+    renderBrandProfiles();
+  }
+}
+document.querySelectorAll('.nav-item').forEach(i=>i.addEventListener('click',()=>navigate(i.dataset.page)));
+
+// ═══════════════════════════════════════════════
+// EDITOR - Go to editor with type
+// ═══════════════════════════════════════════════
+function goToEditor(type){
+  currentEditorType = type;
+  const titles = {'card-news':'카드뉴스 에디터','detail-page':'상세페이지 에디터','package':'패키지 에디터'};
+  document.getElementById('editorTitle').textContent = titles[type] || '에디터';
+
+  // Show/hide editor sections by data-editor attribute
+  document.querySelectorAll('.editor-section[data-editor]').forEach(s => {
+    s.classList.toggle('active', s.getAttribute('data-editor') === type);
+  });
+
+  // Show/hide preview areas
+  document.querySelectorAll('.preview-area').forEach(p => p.classList.remove('active'));
+  document.getElementById('preview-' + type)?.classList.add('active');
+
+  // Update status bar
+  updateStatusBar(type);
+  renderBrandChips();
+  applyBrandToPreview();
+
+  // Build preview from content
+  if (type === 'card-news') {
+    setTimeout(()=>buildCardSlides(), 50);
+  }
+
+  navigate('editor');
+}
+
+function updateStatusBar(type) {
+  const sizeEl = document.getElementById('statusSize');
+  const slideEl = document.getElementById('statusSlide');
+  if (type === 'card-news') {
+    const w = document.getElementById('cardWidth')?.value || 1080;
+    const h = document.getElementById('cardHeight')?.value || 1080;
+    sizeEl.textContent = w + ' x ' + h;
+    if (cardMode === 'single') {
+      slideEl.textContent = '단일 이미지';
+    } else {
+      slideEl.textContent = 'Slide ' + (currentSlide + 1) + ' / ' + slideCount;
+    }
+  } else if (type === 'detail-page') {
+    sizeEl.textContent = '860 x auto';
+    slideEl.textContent = currentDetailPreset === 'hero' ? '히어로 이미지형' : currentDetailPreset === 'steps' ? '스텝 바이 스텝형' : '비교표형';
+  } else if (type === 'package') {
+    const labels = {front:'Front · 210 x 297mm', back:'Back · 210 x 297mm', side:'Side · 70 x 297mm'};
+    sizeEl.textContent = labels[currentPkgPanel] || 'Front · 210 x 297mm';
+    slideEl.textContent = currentPkgPreset === 'minimal' ? '미니멀형' : currentPkgPreset === 'illust' ? '일러스트형' : '포토형';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CARD NEWS - Size Selector
+// ═══════════════════════════════════════════════
+function setCardSize(w, h, el) {
+  document.querySelectorAll('.size-presets .size-preset-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (w > 0 && h > 0) {
+    document.getElementById('cardWidth').value = w;
+    document.getElementById('cardHeight').value = h;
+  }
+  updateCardSize();
+}
+
+function updateCardSize() {
+  const w = parseInt(document.getElementById('cardWidth').value) || 1080;
+  const h = parseInt(document.getElementById('cardHeight').value) || 1080;
+  const ratio = h / w;
+  const maxW = 420;
+  const maxH = 520;
+  let pw = maxW;
+  let ph = pw * ratio;
+  if (ph > maxH) { ph = maxH; pw = ph / ratio; }
+  const frame = document.getElementById('previewFrame');
+  frame.style.width = pw + 'px';
+  frame.style.height = ph + 'px';
+  updateStatusBar('card-news');
+}
+
+// ═══════════════════════════════════════════════
+// CARD NEWS - Mode Toggle
+// ═══════════════════════════════════════════════
+function setCardMode(mode, el) {
+  cardMode = mode;
+  el.parentElement.querySelectorAll('.mode-toggle-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const counterWrap = document.getElementById('slideCounterWrap');
+  const counterLabel = document.getElementById('slideCountLabel');
+  const navWrap = document.getElementById('previewNav');
+  if (mode === 'single') {
+    counterWrap.style.display = 'none';
+    counterLabel.style.display = 'none';
+    navWrap.style.display = 'none';
+    goSlide(0);
+  } else {
+    counterWrap.style.display = 'flex';
+    counterLabel.style.display = '';
+    navWrap.style.display = 'flex';
+  }
+  updateStatusBar('card-news');
+}
+
+// ═══════════════════════════════════════════════
+// CARD NEWS - Text Position
+// ═══════════════════════════════════════════════
+function setTextPosition(el) {
+  document.querySelectorAll('.position-cell').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  textPosition = el.dataset.pos;
+  applyTextPosition();
+}
+
+function applyTextPosition() {
+  const slide = document.getElementById('cardSlide1');
+  if (!slide) return;
+  const posMap = {
+    'top-left': 'flex-start;align-items:flex-start;text-align:left',
+    'top-center': 'flex-start;align-items:center;text-align:center',
+    'top-right': 'flex-start;align-items:flex-end;text-align:right',
+    'middle-left': 'center;align-items:flex-start;text-align:left',
+    'center': 'center;align-items:center;text-align:center',
+    'middle-right': 'center;align-items:flex-end;text-align:right',
+    'bottom-left': 'flex-end;align-items:flex-start;text-align:left',
+    'bottom-center': 'flex-end;align-items:center;text-align:center',
+    'bottom-right': 'flex-end;align-items:flex-end;text-align:right'
+  };
+  const parts = (posMap[textPosition] || posMap['center']).split(';');
+  slide.style.justifyContent = parts[0];
+  slide.style.alignItems = parts[1].split(':')[1];
+  const titleEl = document.getElementById('pvTitle');
+  const subEl = document.getElementById('pvSub');
+  const ta = parts[2].split(':')[1];
+  if (titleEl) titleEl.style.textAlign = ta;
+  if (subEl) subEl.style.textAlign = ta;
+}
+
+// ═══════════════════════════════════════════════
+// CARD NEWS - Presets & Slides
+// ═══════════════════════════════════════════════
+function selectPreset(el){
+  el.closest('.preset-grid').querySelectorAll('.preset-item').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected');
+  buildCardSlides();
+}
+
+let currentSlide=0;
+let slideCount=5;
+
+function goSlide(n){
+  const total = cardMode==='single' ? 1 : slideCount;
+  currentSlide = Math.max(0, Math.min(n, total-1));
+  document.getElementById('previewSlides').style.transform=`translateX(-${currentSlide*100}%)`;
+  document.getElementById('statusSlide').textContent = cardMode==='single' ? '단일 이미지' : `Slide ${currentSlide+1} / ${total}`;
+  document.querySelectorAll('#preview-card-news .slide-dots').forEach(dc=>{
+    dc.querySelectorAll('.s-dot').forEach((d,i)=>{
+      d.classList.toggle('active',i===currentSlide);
+      d.style.width=i===currentSlide?'22px':'7px';
+      d.style.borderRadius=i===currentSlide?'4px':'50%';
+    });
+  });
+}
+
+function nextSlide(){const t=cardMode==='single'?1:slideCount;goSlide((currentSlide+1)%t);}
+function prevSlide(){const t=cardMode==='single'?1:slideCount;goSlide((currentSlide-1+t)%t);}
+
+function changeCount(d){
+  slideCount=Math.max(1,Math.min(10,slideCount+d));
+  document.getElementById('slideCount').textContent=slideCount;
+  buildCardSlides();
+}
+
+// ── Gather all user content ──
+function getCardContent(){
+  const title = (document.getElementById('cardTitle')?.value||'').trim();
+  const body = (document.getElementById('cardBody')?.value||'').trim();
+  const extra = (document.getElementById('cardExtra')?.value||'').trim();
+  // Gather extra blocks
+  const extras = [];
+  document.querySelectorAll('#extraContentBlocks .editor-textarea').forEach(ta=>{
+    const v=ta.value.trim(); if(v) extras.push(v);
+  });
+  // Split body into paragraphs for multi-slide
+  const bodyParts = body.split(/\n{2,}|\n/).filter(s=>s.trim());
+  return {title, body, bodyParts, extra, extras};
+}
+
+// ── Build slide HTML from content ──
+function buildCardSlides(){
+  const container = document.getElementById('previewSlides');
+  const {title, body, bodyParts, extra, extras} = getCardContent();
+  const b = brands[selectedBrandIndex] || {color:'#FF6B35'};
+  const c = b.color;
+  const total = cardMode==='single' ? 1 : slideCount;
+  const allContent = [...bodyParts, ...extras];
+  // Text alignment from position grid
+  const posMap = {
+    'top-left':'flex-start;align-items:flex-start;text-align:left',
+    'top-center':'flex-start;align-items:center;text-align:center',
+    'top-right':'flex-start;align-items:flex-end;text-align:right',
+    'middle-left':'center;align-items:flex-start;text-align:left',
+    'center':'center;align-items:center;text-align:center',
+    'middle-right':'center;align-items:flex-end;text-align:right',
+    'bottom-left':'flex-end;align-items:flex-start;text-align:left',
+    'bottom-center':'flex-end;align-items:center;text-align:center',
+    'bottom-right':'flex-end;align-items:flex-end;text-align:right'
+  };
+  const posStyle = posMap[textPosition]||posMap['center'];
+  const [jc,ai_ta] = [posStyle.split(';')[0], posStyle.split(';').slice(1).join(';')];
+
+  function dots(active, count){
+    if(count<=1) return '';
+    let h='<div class="slide-dots">';
+    for(let i=0;i<count;i++) h+=`<div class="s-dot${i===active?' active':''}" onclick="goSlide(${i})" style="width:${i===active?'22px':'7px'};border-radius:${i===active?'4px':'50%'};${active>=total-1||i===active?'':''}"></div>`;
+    return h+'</div>';
+  }
+
+  let slides = [];
+
+  if(cardMode==='single'){
+    // Single image: all content on one slide
+    slides.push(`
+      <div class="preview-slide" style="background:${c}11;justify-content:${jc};${ai_ta};padding:36px;">
+        ${title?`<div style="font-family:'Outfit';font-size:28px;font-weight:800;color:${c};line-height:1.25;margin-bottom:8px;">${esc(title)}</div>`:''}
+        ${body?`<div style="font-size:14px;color:#4A4640;line-height:1.7;white-space:pre-wrap;">${esc(body)}</div>`:''}
+        ${extras.map(e=>`<div style="font-size:13px;color:#6B6658;line-height:1.6;margin-top:8px;white-space:pre-wrap;">${esc(e)}</div>`).join('')}
+        ${extra?`<div style="font-size:13px;color:${c};font-weight:600;margin-top:12px;font-family:'Outfit';">${esc(extra)}</div>`:''}
+      </div>
+    `);
+  } else {
+    // Multi-slide: distribute content across slides
+    for(let i=0;i<total;i++){
+      if(i===0){
+        // Slide 1: Title slide
+        slides.push(`
+          <div class="preview-slide" style="background:${c}11;justify-content:${jc};${ai_ta};padding:36px;">
+            <div style="width:48px;height:3px;background:${c};border-radius:2px;margin-bottom:12px;"></div>
+            <div style="font-family:'Outfit';font-size:30px;font-weight:800;color:#1A1917;line-height:1.25;letter-spacing:-.03em;">${esc(title||'제목을 입력하세요')}</div>
+            <div style="width:48px;height:3px;background:${c};border-radius:2px;margin:12px 0;"></div>
+            <div style="font-size:14px;color:#8C8778;">${esc(allContent[0]||body||'본문 내용을 입력하세요')}</div>
+            ${dots(0,total)}
+          </div>
+        `);
+      } else if(i===total-1 && total>1){
+        // Last slide: CTA
+        slides.push(`
+          <div class="preview-slide" style="background:${c};justify-content:center;align-items:center;text-align:center;padding:36px;">
+            <div style="font-size:14px;color:rgba(255,255,255,.7);font-weight:500;margin-bottom:8px;">${esc(extra||title||'')}</div>
+            <div style="font-family:'Outfit';font-size:28px;font-weight:800;color:white;line-height:1.25;">자세히 보기</div>
+            <div style="margin-top:18px;background:white;color:${c};font-family:'Outfit';font-size:14px;font-weight:700;padding:12px 28px;border-radius:28px;box-shadow:0 4px 12px rgba(0,0,0,.1);">더 알아보기 →</div>
+            ${dots(i,total)}
+          </div>
+        `);
+      } else {
+        // Content slides: show body paragraphs
+        const contentIdx = i-1;
+        const text = allContent[contentIdx] || '';
+        if(allContent.length > 2 && contentIdx < allContent.length){
+          // Icon-list style if multiple items
+          const itemsForSlide = allContent.slice(contentIdx, contentIdx + 3);
+          const emojis = ['📌','💡','✅','🎯','⭐','🔥','📋','💬'];
+          slides.push(`
+            <div class="preview-slide" style="background:white;justify-content:${jc};${ai_ta};padding:32px;">
+              <div style="font-size:11px;font-weight:700;color:${c};letter-spacing:.08em;font-family:'Outfit';margin-bottom:16px;">SLIDE ${i+1}</div>
+              ${itemsForSlide.map((item,j)=>`
+                <div style="display:flex;align-items:flex-start;gap:12px;width:100%;margin-bottom:14px;">
+                  <div style="width:40px;height:40px;background:${c}15;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${emojis[(contentIdx+j)%emojis.length]}</div>
+                  <div style="font-size:13px;color:#4A4640;line-height:1.6;padding-top:8px;white-space:pre-wrap;">${esc(item)}</div>
+                </div>
+              `).join('')}
+              ${dots(i,total)}
+            </div>
+          `);
+        } else {
+          // Single paragraph style
+          slides.push(`
+            <div class="preview-slide" style="background:linear-gradient(135deg,${c},${c}cc);justify-content:${jc};${ai_ta};padding:40px;">
+              <div style="font-family:'Outfit';font-size:24px;font-weight:800;color:white;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.12);white-space:pre-wrap;">${esc(text||'내용 '+i)}</div>
+              ${extra&&i===total-2?`<div style="margin-top:14px;background:rgba(255,255,255,.92);border-radius:24px;padding:8px 20px;font-size:13px;font-weight:700;color:${c};">${esc(extra)}</div>`:''}
+              ${dots(i,total)}
+            </div>
+          `);
+        }
+      }
+    }
+  }
+
+  container.innerHTML = slides.join('');
+  currentSlide = Math.min(currentSlide, slides.length-1);
+  container.style.transform = `translateX(-${currentSlide*100}%)`;
+  const statusEl = document.getElementById('statusSlide');
+  if(statusEl) statusEl.textContent = cardMode==='single'?'단일 이미지':`Slide ${currentSlide+1} / ${total}`;
+}
+
+function esc(s){ const d=document.createElement('div');d.textContent=s;return d.innerHTML.replace(/\n/g,'<br>'); }
+
+function updateCardPreview(){
+  buildCardSlides();
+}
+
+// ═══════════════════════════════════════════════
+// CARD NEWS - Content Blocks
+// ═══════════════════════════════════════════════
+let extraBlockCount = 0;
+function addContentBlock() {
+  extraBlockCount++;
+  const container = document.getElementById('extraContentBlocks');
+  const block = document.createElement('div');
+  block.className = 'content-block';
+  block.id = 'extraBlock' + extraBlockCount;
+  block.innerHTML = `
+    <label class="field-label">추가 내용 <span class="remove-block" onclick="this.closest('.content-block').remove();buildCardSlides();">삭제</span></label>
+    <textarea class="editor-textarea" placeholder="추가 텍스트를 입력하세요" oninput="buildCardSlides()" style="min-height:60px;"></textarea>
+  `;
+  container.appendChild(block);
+}
+
+// ═══════════════════════════════════════════════
+// FILE UPLOADS (Simulated)
+// ═══════════════════════════════════════════════
+function simulateUpload(dropId, tagId, filename) {
+  const drop = document.getElementById(dropId);
+  const tag = document.getElementById(tagId);
+  if (drop.classList.contains('uploaded')) return;
+  drop.classList.add('uploaded');
+  drop.innerHTML = '<div style="font-size:24px;">✅</div><div style="font-size:13px;color:var(--o600);font-weight:600;margin-top:4px;">업로드 완료</div>';
+  tag.style.display = 'block';
+}
+
+function removeUpload(dropId, tagId) {
+  const drop = document.getElementById(dropId);
+  const tag = document.getElementById(tagId);
+  drop.classList.remove('uploaded');
+  if (dropId === 'productPhotoDrop') {
+    drop.innerHTML = '<div class="file-drop-icon">📷</div><div class="file-drop-text">클릭하거나 파일을 드래그해주세요</div>';
+  } else if (dropId === 'logoDrop') {
+    drop.innerHTML = '<div style="font-size:20px;margin-bottom:4px;">🏷️</div><div style="font-size:12px;color:var(--s400);">로고 파일 업로드</div>';
+  } else if (dropId === 'planDocDrop') {
+    drop.innerHTML = '<div style="font-size:20px;margin-bottom:4px;">📋</div><div style="font-size:12px;color:var(--s400);">기획안 첨부 (PDF, DOC, 이미지)</div>';
+  }
+  tag.style.display = 'none';
+}
+
+function simulateUploadLarge(dropId, tagId) {
+  const drop = document.getElementById(dropId);
+  const tag = document.getElementById(tagId);
+  if (drop.classList.contains('uploaded')) return;
+  drop.classList.add('uploaded');
+  drop.innerHTML = '<div style="font-size:28px;">✅</div><div class="fd-label" style="margin-top:6px;">업로드 완료</div><div class="fd-desc">dieline_box.ai</div>';
+  tag.style.display = 'block';
+}
+
+function removeUploadLarge(dropId, tagId) {
+  const drop = document.getElementById(dropId);
+  const tag = document.getElementById(tagId);
+  drop.classList.remove('uploaded');
+  drop.innerHTML = '<div style="font-size:28px;margin-bottom:6px;">📐</div><div class="fd-label">칼선 파일 업로드</div><div class="fd-desc">AI/PDF/SVG 파일을 업로드하면 칼선에 맞춰 디자인합니다</div>';
+  tag.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// PACKAGE - Reference Images
+// ═══════════════════════════════════════════════
+let pkgRefCount = 2;
+function addPkgRefThumb() {
+  pkgRefCount++;
+  const emojis = ['🖼️', '🎨', '📸', '🌈', '✨'];
+  const container = document.getElementById('pkgRefThumbs');
+  const card = document.createElement('div');
+  card.className = 'ref-thumb-card';
+  card.innerHTML = `${emojis[pkgRefCount % emojis.length]}<button class="remove-thumb" onclick="this.parentElement.remove()">✕</button>`;
+  container.appendChild(card);
+}
+
+// ═══════════════════════════════════════════════
+// DETAIL PAGE - Min Height
+// ═══════════════════════════════════════════════
+function setDpMinHeight(val, el) {
+  document.querySelectorAll('.min-height-presets .size-preset-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('dpMinHeight').value = val;
+}
+
+// ═══════════════════════════════════════════════
+// DETAIL PAGE - Reference Links
+// ═══════════════════════════════════════════════
+let dpRefLinksData = [];
+function addDpRefLink() {
+  const input = document.getElementById('dpRefInput');
+  const url = input.value.trim();
+  if (!url) return;
+  dpRefLinksData.push(url);
+  input.value = '';
+  renderDpRefLinks();
+}
+
+function removeDpRefLink(idx) {
+  dpRefLinksData.splice(idx, 1);
+  renderDpRefLinks();
+}
+
+function renderDpRefLinks() {
+  const container = document.getElementById('dpRefLinks');
+  container.innerHTML = '';
+  dpRefLinksData.forEach((url, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'ref-link-tag';
+    let display = url.replace(/^https?:\/\//, '').split('/')[0];
+    if (display.length > 25) display = display.substring(0, 25) + '...';
+    tag.innerHTML = `🔗 ${display} <span class="remove-ref" onclick="removeDpRefLink(${i})">✕</span>`;
+    container.appendChild(tag);
+  });
+  // Show/hide analysis panel
+  const analysis = document.getElementById('dpRefAnalysis');
+  if (dpRefLinksData.length > 0) {
+    analysis.style.display = 'block';
+    document.getElementById('dpRefAnalysisText').textContent =
+      dpRefLinksData.length + '개 레퍼런스에서 공통 패턴 발견: 히어로 이미지 + 3단 구성 + 리뷰 섹션';
+  } else {
+    analysis.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// DETAIL PAGE - Presets
+// ═══════════════════════════════════════════════
+function selectDetailPreset(el, preset) {
+  el.closest('.preset-grid').querySelectorAll('.preset-item').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  currentDetailPreset = preset;
+
+  // Show/hide detail presets
+  document.getElementById('dp-preset-hero').style.display = preset === 'hero' ? '' : 'none';
+  document.getElementById('dp-preset-steps').style.display = preset === 'steps' ? '' : 'none';
+  document.getElementById('dp-preset-compare').style.display = preset === 'compare' ? '' : 'none';
+
+  // Scroll to top
+  document.getElementById('detailScrollWrap').scrollTop = 0;
+
+  updateStatusBar('detail-page');
+}
+
+function updateDetailPreview() {
+  const name = document.getElementById('dpProductName').value || '제품명';
+  const price = document.getElementById('dpPrice').value || '가격';
+  document.getElementById('dpPvTitle').textContent = name;
+  document.getElementById('dpPvPrice').textContent = price;
+  document.getElementById('dpPvTitleSteps').textContent = name;
+}
+
+// ═══════════════════════════════════════════════
+// PACKAGE - Presets & Panels
+// ═══════════════════════════════════════════════
+function selectPkgPreset(el, preset) {
+  el.closest('.preset-grid').querySelectorAll('.preset-item').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  currentPkgPreset = preset;
+  updateStatusBar('package');
+}
+
+function switchPkgPanel(panel) {
+  currentPkgPanel = panel;
+
+  const tabs = document.querySelectorAll('.pkg-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  const idx = {front:0, back:1, side:2}[panel];
+  tabs[idx]?.classList.add('active');
+
+  // Show/hide panels
+  document.querySelectorAll('.pkg-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.pkg-panel[data-panel="${panel}"]`)?.classList.add('active');
+
+  updateStatusBar('package');
+}
+
+function updatePkgPreview() {
+  const name = document.getElementById('pkgProductName').value || '제품명';
+  const weight = document.getElementById('pkgWeight').value || '0g';
+  document.getElementById('pkgPvName').textContent = name;
+  document.getElementById('pkgPvWeight').textContent = 'Net. ' + weight;
+}
+
+// ═══════════════════════════════════════════════
+// GENERATE
+// ═══════════════════════════════════════════════
+function startGenerate(){
+  const btn=document.getElementById('generateBtn');
+  const bar=document.getElementById('progressBar');
+  btn.classList.add('loading');
+  let progress=0;
+  const interval=setInterval(()=>{
+    progress+=Math.random()*15+5;
+    if(progress>=100){progress=100;clearInterval(interval);
+      setTimeout(()=>{
+        btn.classList.remove('loading');
+        bar.style.width='0';
+        showResults();
+        navigate('results');
+      },400);
+    }
+    bar.style.width=progress+'%';
+  },200);
+}
+
+function showResults() {
+  document.getElementById('results-card-news').style.display = 'none';
+  document.getElementById('results-detail-page').style.display = 'none';
+  document.getElementById('results-package').style.display = 'none';
+
+  const titleEl = document.getElementById('resultsTitle');
+  const subEl = document.getElementById('resultsSub');
+
+  if (currentEditorType === 'card-news') {
+    buildCardResults();
+    document.getElementById('results-card-news').style.display = '';
+    const total = cardMode==='single'?1:slideCount;
+    titleEl.textContent = '생성 완료! 🎉';
+    subEl.textContent = total===1?'단��� 카드뉴스가 생성되었어요.':total+'장의 카드뉴스가 생성되었어요. 클릭하면 크게 볼 수 있어요.';
+  } else if (currentEditorType === 'detail-page') {
+    document.getElementById('results-detail-page').style.display = '';
+    titleEl.textContent = '생성 완료! 🎉';
+    subEl.textContent = '상세페이지가 생성되었어요.';
+  } else if (currentEditorType === 'package') {
+    document.getElementById('results-package').style.display = '';
+    titleEl.textContent = '생성 완료! 🎉';
+    subEl.textContent = '패키지 디자인 3면이 생성되었어요.';
+  }
+}
+
+function buildCardResults(){
+  const grid = document.querySelector('#results-card-news .results-grid');
+  if(!grid) return;
+  const {title, body, bodyParts, extra, extras} = getCardContent();
+  const b = brands[selectedBrandIndex]||{color:'#FF6B35'};
+  const c = b.color;
+  const total = cardMode==='single'?1:slideCount;
+  const allContent = [...bodyParts, ...extras];
+
+  // Store slide data for modal
+  window._resultSlides = [];
+  grid.innerHTML = '';
+
+  for(let i=0;i<total;i++){
+    let thumbBg, thumbContent, slideHtml;
+
+    if(i===0){
+      thumbBg = `background:${c}15`;
+      thumbContent = `<div style="font-size:10px;color:${c};font-weight:700;font-family:'Outfit';letter-spacing:.05em;">${total>1?'01':''}</div><div style="font-size:16px;font-weight:800;color:#1A1917;margin-top:6px;text-align:center;font-family:'Outfit';line-height:1.3;">${esc(title||'제목')}</div>`;
+      slideHtml = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:${c}11;padding:40px;"><div style="width:60px;height:3px;background:${c};border-radius:2px;margin-bottom:16px;"></div><div style="font-family:'Outfit';font-size:42px;font-weight:800;text-align:center;line-height:1.2;">${esc(title||'제목')}</div><div style="width:60px;height:3px;background:${c};border-radius:2px;margin:16px 0;"></div><div style="font-size:16px;color:#8C8778;">${esc(allContent[0]||body||'')}</div></div>`;
+    } else if(i===total-1 && total>1){
+      thumbBg = `background:${c}`;
+      thumbContent = `<div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:700;font-family:'Outfit';letter-spacing:.05em;">${String(i+1).padStart(2,'0')}</div><div style="font-size:16px;font-weight:800;color:white;margin-top:6px;text-align:center;font-family:'Outfit';">자세히 보기</div>`;
+      slideHtml = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:${c};"><div style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:8px;">${esc(extra||title||'')}</div><div style="font-family:'Outfit';font-size:42px;font-weight:800;color:white;text-align:center;line-height:1.2;">자세히 보기</div><div style="margin-top:24px;background:white;color:${c};font-family:'Outfit';font-size:18px;font-weight:700;padding:16px 40px;border-radius:40px;">더 알아보기 →</div></div>`;
+    } else {
+      const ci = i-1;
+      const text = allContent[ci]||'';
+      if(allContent.length>2 && ci<allContent.length){
+        const items = allContent.slice(ci,ci+3);
+        const emojis=['📌','💡','✅','🎯','⭐','🔥'];
+        thumbBg = 'background:white';
+        thumbContent = `<div style="font-size:10px;color:${c};font-weight:700;font-family:Outfit;">${String(i+1).padStart(2,'0')}</div><div style="font-size:13px;color:#4A4640;margin-top:6px;text-align:center;line-height:1.5;">${items.map((it,j)=>emojis[(ci+j)%emojis.length]+' '+esc(it.substring(0,15))).join('<br>')}</div>`;
+        slideHtml = `<div style="display:flex;flex-direction:column;padding:40px;justify-content:center;height:100%;background:white;">${items.map((it,j)=>`<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;"><div style="width:48px;height:48px;background:${c}15;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;">${emojis[(ci+j)%emojis.length]}</div><div style="font-size:16px;color:#2D2B27;line-height:1.6;padding-top:10px;">${esc(it)}</div></div>`).join('')}</div>`;
+      } else {
+        thumbBg = `background:linear-gradient(135deg,${c},${c}cc)`;
+        thumbContent = `<div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:700;font-family:Outfit;">${String(i+1).padStart(2,'0')}</div><div style="font-size:14px;font-weight:700;color:white;margin-top:6px;text-align:center;">${esc((text||'내용 '+i).substring(0,20))}</div>`;
+        slideHtml = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:linear-gradient(135deg,${c},${c}cc);padding:40px;"><div style="font-family:'Outfit';font-size:36px;font-weight:800;color:white;text-align:center;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.12);white-space:pre-wrap;">${esc(text||'내용 '+i)}</div>${extra?`<div style="margin-top:20px;background:rgba(255,255,255,.92);border-radius:28px;padding:10px 24px;font-size:14px;font-weight:700;color:${c};">${esc(extra)}</div>`:''}</div>`;
+      }
+    }
+
+    window._resultSlides.push({bg:i===0?`${c}11`:i===total-1?c:'white', html:slideHtml});
+
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.onclick = (function(idx){return function(){openResultModal(idx);};})(i);
+    card.innerHTML = `
+      <div class="result-thumb" style="${thumbBg};">
+        <div class="result-thumb-inner" style="background:transparent;">${thumbContent}</div>
+        <div class="result-overlay"><button class="rbtn primary" onclick="event.stopPropagation()">다운로드</button><button class="rbtn secondary" onclick="event.stopPropagation()">편집</button></div>
+      </div>
+      <div class="result-info">
+        <div class="result-name">slide-${String(i+1).padStart(2,'0')}.png</div>
+        <div class="result-size">${document.getElementById('cardWidth')?.value||1080}×${document.getElementById('cardHeight')?.value||1080} · ${Math.floor(Math.random()*300+150)}KB</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function openResultModal(idx){
+  const s = window._resultSlides && window._resultSlides[idx];
+  if(!s) return;
+  const m=document.getElementById('modal');
+  const c=document.getElementById('modalContent');
+  c.style.background=s.bg;
+  c.innerHTML=s.html+`<button class="modal-close" onclick="closeModal(event,true)">✕</button><div class="modal-slide-label">Slide ${idx+1} / ${window._resultSlides.length}</div>`;
+  m.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════
+// BRAND
+// ═══════════════════════════════════════════════
+function onBrandNameInput() {
+  const val = document.getElementById('brandNameInput').value || 'Brand';
+  document.getElementById('bpName').textContent = val;
+}
+
+function pickColor(el,hex){
+  el.closest('.color-swatches').querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('colorInput').value=hex;
+  document.getElementById('colorPreview').style.background=hex;
+  document.getElementById('bpSwatch').style.background=`linear-gradient(135deg,${hex},${hex}dd)`;
+  document.getElementById('bpHex').textContent=hex;
+}
+function updateColorPreview(){
+  const v=document.getElementById('colorInput').value;
+  if(/^#[0-9A-Fa-f]{6}$/.test(v)){document.getElementById('colorPreview').style.background=v;document.getElementById('bpSwatch').style.background=`linear-gradient(135deg,${v},${v}dd)`;document.getElementById('bpHex').textContent=v;}
+}
+function saveBrand(){
+  const name = document.getElementById('brandNameInput').value || 'Brand';
+  const color = document.getElementById('colorInput').value || '#FF6B35';
+  const fontChip = document.querySelector('#fontStyleOptions .tone-chip.selected');
+  const toneChip = document.querySelector('#toneOptions .tone-chip.selected');
+  brands[editingBrandIndex] = {
+    name: name,
+    color: color,
+    subColor: brands[editingBrandIndex]?.subColor || '#FFB088',
+    font: fontChip ? fontChip.textContent : '모던/깔끔',
+    tone: toneChip ? toneChip.textContent : '친근한 반말'
+  };
+  renderBrandProfiles();
+  renderBrandChips();
+  applyBrandToPreview();
+  const el=document.querySelector('.brand-save-row .btn');
+  el.textContent='✅ 저장 완료!';el.style.background='#22C55E';
+  setTimeout(()=>{el.textContent='💾 프로필 저장';el.style.background='';},1500);
+}
+
+document.querySelectorAll('.tone-options').forEach(g=>{
+  g.querySelectorAll('.tone-chip').forEach(c=>{
+    c.addEventListener('click',()=>{g.querySelectorAll('.tone-chip').forEach(x=>x.classList.remove('selected'));c.classList.add('selected');});
+  });
+});
+
+// ═══════════════════════════════════════════════
+// MODAL - Card News
+// ═══════════════════════════════════════════════
+const slideData=[
+  {bg:'var(--o50)',html:'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--o50);"><div style="font-size:12px;font-weight:700;color:var(--o500);letter-spacing:.1em;font-family:Outfit;">NEW MENU</div><div style="width:60px;height:3px;background:var(--o500);border-radius:2px;margin:16px 0;"></div><div style="font-family:Outfit;font-size:42px;font-weight:800;text-align:center;line-height:1.2;letter-spacing:-.03em;">여름 신메뉴<br>출시 안내</div><div style="width:60px;height:3px;background:var(--o500);border-radius:2px;margin:16px 0;"></div><div style="font-size:16px;color:#8C8778;">시원하고 달콤한 여름 한정 음료 3종</div></div>'},
+  {bg:'white',html:'<div style="padding:40px;height:100%;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:12px;font-weight:700;color:var(--o500);letter-spacing:.08em;font-family:Outfit;text-transform:uppercase;margin-bottom:24px;">이번 여름, 꼭 마셔봐야 할 3가지</div><div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;"><div style="width:56px;height:56px;background:var(--o50);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;">🍑</div><div><div style="font-size:18px;font-weight:600;">피치 아이스티</div><div style="font-size:13px;color:#8C8778;">국내산 복숭아를 통째로 갈아 만든 아이스티</div></div></div><div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;"><div style="width:56px;height:56px;background:var(--o50);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;">🥭</div><div><div style="font-size:18px;font-weight:600;">망고 요거트 스무디</div><div style="font-size:13px;color:#8C8778;">리얼 망고 퓨레와 그릭 요거트의 진한 만남</div></div></div><div style="display:flex;align-items:center;gap:16px;"><div style="width:56px;height:56px;background:var(--o50);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;">🫐</div><div><div style="font-size:18px;font-weight:600;">블루베리 에이드</div><div style="font-size:13px;color:#8C8778;">톡톡 터지는 블루베리와 탄산의 시원한 조화</div></div></div></div>'},
+  {bg:'linear-gradient(135deg,#FF6B35,#FF8F5E)',html:'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;"><div style="font-size:80px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.15));">🍑</div><div style="font-family:Outfit;font-size:36px;font-weight:800;color:white;margin-top:16px;text-shadow:0 2px 8px rgba(0,0,0,.15);">피치 아이스티</div><div style="font-size:16px;color:rgba(255,255,255,.85);margin-top:8px;">프리미엄 황도 복숭아 아이스티</div><div style="margin-top:24px;background:rgba(255,255,255,.95);border-radius:32px;padding:12px 32px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.1);"><span style="font-size:15px;color:#B0ACA0;text-decoration:line-through;">5,500원</span><span style="font-family:Outfit;font-size:26px;font-weight:800;color:#C2410C;">4,200원</span></div></div>'},
+  {bg:'#F3F4F6',html:'<div style="display:grid;grid-template-columns:1fr 1fr;height:100%;"><div style="background:#F3F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;"><div style="font-size:11px;font-weight:700;color:#B0ACA0;letter-spacing:.1em;font-family:Outfit;">BEFORE</div><div style="font-size:56px;margin:16px 0;">😫</div><div style="font-size:22px;font-weight:700;color:#6B6658;text-align:center;line-height:1.3;">무더운 여름<br>입맛이 없을 때</div></div><div style="background:#FFF7ED;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;"><div style="font-size:11px;font-weight:700;color:#FF6B35;letter-spacing:.1em;font-family:Outfit;">AFTER</div><div style="font-size:56px;margin:16px 0;">😍</div><div style="font-size:22px;font-weight:700;color:#1A1917;text-align:center;line-height:1.3;">상큼한 과일로<br>기분 전환!</div></div></div>'},
+  {bg:'var(--o500)',html:'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:var(--o500);"><div style="font-size:16px;color:rgba(255,255,255,.75);font-weight:500;">여름 한정 메뉴를 만나보세요</div><div style="font-family:Outfit;font-size:42px;font-weight:800;color:white;text-align:center;margin-top:12px;line-height:1.2;text-shadow:0 2px 8px rgba(0,0,0,.12);">지금 바로<br>주문하세요!</div><div style="margin-top:24px;background:white;color:#C2410C;font-family:Outfit;font-size:18px;font-weight:700;padding:16px 40px;border-radius:40px;box-shadow:0 4px 16px rgba(0,0,0,.1);">매장 찾기 →</div></div>'}
+];
+
+function openModal(idx){
+  const m=document.getElementById('modal');
+  const c=document.getElementById('modalContent');
+  c.className = 'modal-content';
+  const s=slideData[idx];
+  c.style.background=s.bg;
+  c.innerHTML=s.html+`<button class="modal-close" onclick="closeModal(event,true)">✕</button><div class="modal-slide-label">Slide ${idx+1} / 5</div>`;
+  m.classList.add('show');
+}
+
+// Modal - Detail Page
+function openModalDetail(){
+  const m=document.getElementById('modal');
+  const c=document.getElementById('modalContent');
+  c.className = 'modal-content tall';
+  c.style.background = 'white';
+  c.innerHTML = `
+    <div style="width:100%;height:180px;background:linear-gradient(135deg,var(--o500),var(--o600));display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.12em;font-family:Outfit;background:rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;margin-bottom:8px;">BEST SELLER</div>
+      <div style="font-family:Outfit;font-size:28px;font-weight:800;color:white;text-align:center;">유기농 아보카도 샴푸</div>
+      <div style="font-size:14px;color:rgba(255,255,255,.8);margin-top:6px;font-family:Outfit;">29,800원</div>
+    </div>
+    <div style="padding:20px;">
+      <div style="font-size:15px;font-weight:700;color:var(--s800);margin-bottom:12px;">왜 이 제품이 특별한가요?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+        <div style="background:var(--s50);border-radius:10px;padding:14px 8px;text-align:center;"><div style="font-size:22px;margin-bottom:4px;">🌿</div><div style="font-size:10px;font-weight:600;color:var(--s600);">EWG 그린등급</div></div>
+        <div style="background:var(--s50);border-radius:10px;padding:14px 8px;text-align:center;"><div style="font-size:22px;margin-bottom:4px;">🧪</div><div style="font-size:10px;font-weight:600;color:var(--s600);">자극 테스트</div></div>
+        <div style="background:var(--s50);border-radius:10px;padding:14px 8px;text-align:center;"><div style="font-size:22px;margin-bottom:4px;">🥑</div><div style="font-size:10px;font-weight:600;color:var(--s600);">아보카도 72%</div></div>
+      </div>
+      <div style="background:var(--s50);border-radius:10px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--o500);font-weight:700;margin-bottom:6px;">★★★★★</div>
+        <div style="font-size:12px;color:var(--s600);line-height:1.5;">"두피 가려움이 정말 사라졌어요!"</div>
+        <div style="font-size:10px;color:var(--s400);margin-top:4px;">@beauty_jin</div>
+      </div>
+      <div style="text-align:center;margin-top:16px;">
+        <div style="display:inline-block;background:linear-gradient(135deg,var(--o500),var(--o600));color:white;font-family:Outfit;font-weight:700;font-size:15px;padding:14px 44px;border-radius:32px;box-shadow:0 4px 16px rgba(255,107,53,.3);">구매하기 →</div>
+      </div>
+    </div>
+    <button class="modal-close" onclick="closeModal(event,true)">✕</button>
+    <div class="modal-slide-label">상세페이지 · 860xauto</div>
+  `;
+  m.classList.add('show');
+}
+
+// Modal - Package
+function openModalPkg(panel){
+  const m=document.getElementById('modal');
+  const c=document.getElementById('modalContent');
+  c.className = 'modal-content pkg-modal';
+  const labels = {front:'앞면 (Front)', back:'뒷면 (Back)', side:'옆면 (Side)'};
+
+  if(panel === 'front'){
+    c.style.background = 'var(--s50)';
+    c.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:40px;">
+        <div style="width:280px;height:400px;background:white;border-radius:4px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.08);">
+          <div style="position:absolute;inset:6px;border:1.5px dashed var(--s300);border-radius:2px;pointer-events:none;"></div>
+          <div style="position:absolute;inset:24px;display:flex;flex-direction:column;align-items:center;">
+            <div style="width:60px;height:24px;border-radius:4px;background:var(--s100);display:flex;align-items:center;justify-content:center;font-size:8px;font-family:Outfit;font-weight:700;color:var(--s400);align-self:flex-start;">LOGO</div>
+            <div style="width:140px;height:140px;border-radius:16px;background:linear-gradient(135deg,var(--o50),var(--o100));display:flex;align-items:center;justify-content:center;font-size:56px;margin:20px 0;box-shadow:0 4px 20px rgba(255,107,53,.08);">🍪</div>
+            <div style="font-family:Outfit;font-size:22px;font-weight:800;color:var(--s900);text-align:center;">수제 초코 쿠키</div>
+            <div style="font-size:11px;color:var(--o500);font-weight:600;font-family:Outfit;background:var(--o50);padding:3px 14px;border-radius:10px;margin-top:8px;">Original · Dark Chocolate</div>
+            <div style="font-size:12px;font-family:JetBrains Mono;color:var(--s400);margin-top:auto;">Net. 250g</div>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal(event,true)">✕</button>
+      <div class="modal-slide-label">${labels[panel]} · 210x297mm</div>
+    `;
+  } else if(panel === 'back'){
+    c.style.background = 'var(--s50)';
+    c.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:40px;">
+        <div style="width:280px;height:400px;background:white;border-radius:4px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.08);padding:28px;overflow-y:auto;">
+          <div style="position:absolute;inset:6px;border:1.5px dashed var(--s300);border-radius:2px;pointer-events:none;z-index:2;"></div>
+          <div style="position:relative;z-index:1;">
+            <div style="font-family:Outfit;font-size:12px;font-weight:700;color:var(--s800);letter-spacing:.05em;margin-bottom:12px;">영양 정보 / 성분</div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+              <tr style="background:var(--s50);"><th style="padding:6px;border-bottom:1px solid var(--s200);text-align:left;font-size:9px;font-family:Outfit;">성분</th><th style="padding:6px;border-bottom:1px solid var(--s200);text-align:left;font-size:9px;font-family:Outfit;">함량</th><th style="padding:6px;border-bottom:1px solid var(--s200);text-align:left;font-size:9px;font-family:Outfit;">비율</th></tr>
+              <tr><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">밀가루</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">80g</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">32%</td></tr>
+              <tr><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">버터</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">50g</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">20%</td></tr>
+              <tr><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">코코아</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">40g</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">16%</td></tr>
+              <tr><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">설탕</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">45g</td><td style="padding:5px 6px;border-bottom:1px solid var(--s200);font-size:10px;">18%</td></tr>
+              <tr><td style="padding:5px 6px;font-size:10px;">달걀</td><td style="padding:5px 6px;font-size:10px;">35g</td><td style="padding:5px 6px;font-size:10px;">14%</td></tr>
+            </table>
+            <div style="font-weight:700;color:var(--s700);margin-bottom:6px;font-size:11px;">섭취 / 사용 방법</div>
+            <div style="font-size:10px;color:var(--s500);line-height:1.7;margin-bottom:16px;">개봉 후 그대로 드시면 됩니다. 직사광선을 피해 서늘한 곳에 보관해주세요.</div>
+            <div style="width:100%;height:44px;background:var(--s50);border-radius:4px;display:flex;align-items:center;justify-content:center;">
+              <div style="font-size:8px;font-family:JetBrains Mono;color:var(--s500);">|||| |||| ||| |||| |||</div>
+            </div>
+            <div style="font-size:8px;color:var(--s400);text-align:center;margin-top:6px;font-family:JetBrains Mono;">8 801234 567890</div>
+            <div style="font-size:8px;color:var(--s400);line-height:1.5;margin-top:10px;text-align:center;">제조원: Demo Brand Co., Ltd.<br>소비자 상담실: 1588-0000</div>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal(event,true)">✕</button>
+      <div class="modal-slide-label">${labels[panel]} · 210x297mm</div>
+    `;
+  } else {
+    c.style.background = 'var(--s50)';
+    c.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:40px;">
+        <div style="width:140px;height:400px;background:white;border-radius:4px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,.08);">
+          <div style="position:absolute;inset:6px;border:1.5px dashed var(--s300);border-radius:2px;pointer-events:none;"></div>
+          <div style="position:absolute;inset:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:20px;">
+            <div style="font-family:Outfit;font-size:14px;font-weight:700;color:var(--s800);writing-mode:vertical-rl;transform:rotate(180deg);height:180px;display:flex;align-items:center;justify-content:center;">Handmade with Love</div>
+            <div style="font-size:10px;color:var(--s500);writing-mode:vertical-rl;transform:rotate(180deg);height:130px;line-height:1.6;">정성을 담아 하나하나 수제로 만든 프리미엄 쿠키</div>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal(event,true)">✕</button>
+      <div class="modal-slide-label">${labels[panel]} · 70x297mm</div>
+    `;
+  }
+  m.classList.add('show');
+}
+
+function closeModal(e,force){
+  if(force||e.target===document.getElementById('modal')){
+    document.getElementById('modal').classList.remove('show');
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('modal').classList.remove('show');});
+
+// keyboard nav for slides
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('page-editor').classList.contains('active') && currentEditorType === 'card-news'){
+    if(e.key==='ArrowRight')nextSlide();
+    if(e.key==='ArrowLeft')prevSlide();
+  }
+});
+
+// ═══════════════════════════════════════════════
+// INITIALIZE
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.editor-section[data-editor="card-news"]').forEach(s => s.classList.add('active'));
+renderBrandProfiles();
+renderBrandChips();
+</script>
+</body>
+</html>

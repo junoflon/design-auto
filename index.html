@@ -2775,23 +2775,107 @@ function updatePkgPreview() {
 // ═══════════════════════════════════════════════
 // GENERATE
 // ═══════════════════════════════════════════════
-function startGenerate(){
+async function startGenerate(){
   const btn=document.getElementById('generateBtn');
   const bar=document.getElementById('progressBar');
   btn.classList.add('loading');
+
+  // Animate progress bar (fake progress while waiting for API)
   let progress=0;
   const interval=setInterval(()=>{
-    progress+=Math.random()*15+5;
-    if(progress>=100){progress=100;clearInterval(interval);
-      setTimeout(()=>{
-        btn.classList.remove('loading');
-        bar.style.width='0';
-        showResults();
-        navigate('results');
-      },400);
-    }
+    progress=Math.min(progress+Math.random()*8+2, 85);
     bar.style.width=progress+'%';
-  },200);
+  },300);
+
+  try {
+    // Build request payload based on editor type
+    const b = brands[selectedBrandIndex] || null;
+    const payload = buildAPIPayload(currentEditorType, b);
+
+    // Check if API is available
+    const healthRes = await fetch('/api/health');
+    const health = await healthRes.json();
+
+    if (health.apiKey) {
+      // Real API call
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.success && data.images) {
+        window._generatedImages = data.images;
+        window._generatedHTML = data.html;
+      }
+    }
+
+    // Complete progress
+    clearInterval(interval);
+    bar.style.width='100%';
+    setTimeout(()=>{
+      btn.classList.remove('loading');
+      bar.style.width='0';
+      showResults();
+      navigate('results');
+    },400);
+
+  } catch(err) {
+    console.log('API not available, using local preview:', err.message);
+    // Fallback: use local preview (no API)
+    clearInterval(interval);
+    bar.style.width='100%';
+    setTimeout(()=>{
+      btn.classList.remove('loading');
+      bar.style.width='0';
+      showResults();
+      navigate('results');
+    },400);
+  }
+}
+
+function buildAPIPayload(type, brand) {
+  const payload = { type, brand, preset: '' };
+
+  if (type === 'card-news') {
+    const {title, body, extra, extras} = getCardContent();
+    payload.content = {title, body, extra, extras};
+    payload.preset = document.querySelector('#presets-card .preset-item.selected .pi-name')?.textContent || '타이틀 중심형';
+    payload.options = {
+      slideCount: cardMode==='single' ? 1 : slideCount,
+      width: parseInt(document.getElementById('cardWidth')?.value)||1080,
+      height: parseInt(document.getElementById('cardHeight')?.value)||1080,
+      textPosition: textPosition,
+      mode: cardMode
+    };
+  } else if (type === 'detail-page') {
+    payload.content = {
+      title: document.getElementById('dpProductName')?.value||'',
+      body: document.getElementById('dpSellingPoints')?.value||'',
+      price: document.getElementById('dpPrice')?.value||'',
+      audience: document.getElementById('dpAudience')?.value||''
+    };
+    payload.preset = currentDetailPreset;
+    payload.options = { minHeight: parseInt(document.getElementById('dpMinHeight')?.value)||3000 };
+  } else if (type === 'package') {
+    payload.content = {
+      title: document.getElementById('pkgProductName')?.value||'',
+      category: document.getElementById('pkgCategory')?.value||'',
+      weight: document.getElementById('pkgWeight')?.value||'',
+      ingredients: document.getElementById('pkgIngredients')?.value||''
+    };
+    payload.preset = currentPkgPreset;
+  } else if (type === 'thumbnail') {
+    payload.content = {
+      channel: document.getElementById('thumbChannel')?.value||'',
+      topic: document.getElementById('thumbTopic')?.value||'',
+      keyword: document.getElementById('thumbKeyword')?.value||''
+    };
+    payload.preset = document.querySelector('#presets-thumb .preset-item.selected .pi-name')?.textContent || '임팩트형';
+  }
+
+  return payload;
 }
 
 function showResults() {

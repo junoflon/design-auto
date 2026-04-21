@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
+const store = require('./lib/db');
 
 const app = express();
 app.use(cors());
@@ -28,38 +29,57 @@ const outputDir = path.join(__dirname, 'output');
 // ═══════════════════════════════════════════════
 app.post('/api/generate', async (req, res) => {
   try {
-    const { type, content, brand, preset, options } = req.body;
+    const { type, content, brand, preset, options, projectId, title } = req.body;
 
     if (!type || !content) {
       return res.status(400).json({ error: 'type과 content는 필수입니다.' });
     }
 
-    // 1. Claude에게 HTML/CSS 코드 생성 요청
+    const project = projectId
+      ? { id: projectId }
+      : store.getOrCreateDefaultProject();
+    const assetId = store.uuid();
+    const versionId = store.uuid();
+
     const prompt = buildPrompt(type, content, brand, preset, options);
-    console.log(`[generate] type=${type}, preset=${preset}`);
+    console.log(`[generate] type=${type}, preset=${preset}, assetId=${assetId}`);
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    const htmlCode = extractHTML(message.content[0].text);
+    const { html: htmlCode, usage } = await generateHtmlWithRetry(prompt);
     if (!htmlCode) {
-      return res.status(500).json({ error: 'HTML 코드 생성 실패' });
+      return res.status(500).json({ error: 'HTML 코드 생성 실패 (재시도 포함)' });
     }
 
-    // 2. HTML을 이미지로 캡처
     const dimensions = getDimensions(type, options);
-    const images = await captureHTML(htmlCode, dimensions, type, options);
+    const assetOutDir = path.join(outputDir, type, `${assetId}_${versionId}`);
+    fs.mkdirSync(assetOutDir, { recursive: true });
+    const images = await captureHTML(htmlCode, dimensions, type, options, assetOutDir);
+
+    const imagePaths = images.map(img => `/output/${type}/${assetId}_${versionId}/${img.filename}`);
+
+    store.createAssetWithVersion({
+      assetId,
+      versionId,
+      projectId: project.id,
+      type,
+      title: title || null,
+      content,
+      options: { ...options, preset, brand },
+      html: htmlCode,
+      imagePaths,
+      prompt,
+      tokensIn: usage?.input_tokens || 0,
+      tokensOut: usage?.output_tokens || 0
+    });
 
     res.json({
       success: true,
       type,
+      assetId,
+      versionId,
       html: htmlCode,
-      images: images.map(img => ({
-        filename: img.filename,
-        url: `/output/${type}/${img.filename}`,
+      images: imagePaths.map(url => ({
+        filename: path.basename(url),
+        url,
         width: dimensions.width,
         height: dimensions.height
       }))
@@ -70,6 +90,29 @@ app.post('/api/generate', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+async function generateHtmlWithRetry(prompt, maxAttempts = 2) {
+  let lastErr = null;
+  let lastUsage = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      lastUsage = message.usage;
+      const html = extractHTML(message.content[0].text);
+      if (html) return { html, usage: message.usage };
+      console.warn(`[generate] attempt ${attempt}: HTML parse failed, retrying...`);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[generate] attempt ${attempt} error: ${e.message}`);
+    }
+  }
+  if (lastErr) throw lastErr;
+  return { html: null, usage: lastUsage };
+}
 
 // ═══════════════════════════════════════════════
 // API: Analyze Reference
@@ -291,23 +334,20 @@ function getDimensions(type, options) {
 // ═══════════════════════════════════════════════
 // HTML → Image Capture
 // ═══════════════════════════════════════════════
-async function captureHTML(html, dimensions, type, options) {
+async function captureHTML(html, dimensions, type, options, targetDir) {
+  const outDir = targetDir || path.join(outputDir, type);
+  fs.mkdirSync(outDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const images = [];
 
   try {
     if (type === 'card-news' && (options?.slideCount || 5) > 1) {
-      // Multi-slide: capture each slide separately
       const slideCount = options?.slideCount || 5;
       for (let i = 1; i <= slideCount; i++) {
         const page = await browser.newPage({
           viewport: { width: dimensions.width, height: dimensions.height }
         });
-
-        // Inject HTML and scroll to specific slide
         await page.setContent(html, { waitUntil: 'networkidle' });
-
-        // Try to isolate slide
         await page.evaluate((slideId) => {
           const slide = document.getElementById(slideId);
           if (slide) {
@@ -317,17 +357,14 @@ async function captureHTML(html, dimensions, type, options) {
             slide.style.height = '100vh';
           }
         }, `slide-${i}`);
-
         await page.waitForTimeout(500);
 
         const filename = `slide-${String(i).padStart(2, '0')}.png`;
-        const filepath = path.join(outputDir, type, filename);
-        await page.screenshot({ path: filepath, type: 'png' });
+        await page.screenshot({ path: path.join(outDir, filename), type: 'png' });
         images.push({ filename });
         await page.close();
       }
     } else {
-      // Single image
       const page = await browser.newPage({
         viewport: { width: dimensions.width, height: dimensions.height }
       });
@@ -337,7 +374,7 @@ async function captureHTML(html, dimensions, type, options) {
       const filename = type === 'thumbnail' ? 'thumbnail.png' :
                        type === 'detail-page' ? 'detail-page.png' :
                        type === 'package' ? 'package.png' : 'design.png';
-      const filepath = path.join(outputDir, type, filename);
+      const filepath = path.join(outDir, filename);
 
       if (type === 'detail-page') {
         await page.screenshot({ path: filepath, type: 'png', fullPage: true });
@@ -384,11 +421,96 @@ async function captureReferenceScreenshots(urls) {
 // ═══════════════════════════════════════════════
 // Health Check
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// Projects / Assets / Versions (Phase 1 DB)
+// ═══════════════════════════════════════════════
+app.get('/api/projects', (req, res) => {
+  const rows = store.db.prepare('SELECT * FROM projects ORDER BY created_at ASC').all();
+  if (!rows.length) {
+    const p = store.getOrCreateDefaultProject();
+    return res.json({ projects: [p] });
+  }
+  res.json({ projects: rows });
+});
+
+app.get('/api/assets', (req, res) => {
+  const { projectId, type, limit } = req.query;
+  const assets = store.listAssets({
+    projectId: projectId || undefined,
+    type: type || undefined,
+    limit: limit ? Number(limit) : 100
+  });
+  res.json({ assets });
+});
+
+app.get('/api/assets/:id', (req, res) => {
+  const asset = store.getAsset(req.params.id);
+  if (!asset) return res.status(404).json({ error: 'not found' });
+  res.json({ asset });
+});
+
+app.patch('/api/assets/:id', (req, res) => {
+  const { title, favorite } = req.body || {};
+  if (typeof title === 'string') store.updateAssetTitle(req.params.id, title);
+  if (favorite === true || favorite === 'toggle') store.toggleFavorite(req.params.id);
+  res.json({ asset: store.getAsset(req.params.id) });
+});
+
+app.delete('/api/assets/:id', (req, res) => {
+  store.deleteAsset(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/assets/:id/versions', async (req, res) => {
+  try {
+    const { html, note } = req.body || {};
+    if (!html) return res.status(400).json({ error: 'html is required' });
+    const asset = store.getAsset(req.params.id);
+    if (!asset) return res.status(404).json({ error: 'asset not found' });
+
+    const versionId = store.uuid();
+    const dimensions = getDimensions(asset.type, asset.input_options);
+    const assetOutDir = path.join(outputDir, asset.type, `${asset.id}_${versionId}`);
+    fs.mkdirSync(assetOutDir, { recursive: true });
+    const images = await captureHTML(html, dimensions, asset.type, asset.input_options, assetOutDir);
+    const imagePaths = images.map(img => `/output/${asset.type}/${asset.id}_${versionId}/${img.filename}`);
+
+    // Insert explicit version id by using addVersion; then set current.
+    // addVersion uses internal uuid — adjust: we want controlled id.
+    const vid = store.addVersion({
+      versionId,
+      assetId: asset.id,
+      html,
+      imagePaths,
+      prompt: null,
+      note: note || '수동 편집 저장'
+    });
+
+    res.json({
+      success: true,
+      assetId: asset.id,
+      versionId: vid,
+      images: imagePaths.map(url => ({ url, filename: path.basename(url) }))
+    });
+  } catch (e) {
+    console.error('[versions] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/assets/:id/current-version', (req, res) => {
+  const { versionId } = req.body || {};
+  if (!versionId) return res.status(400).json({ error: 'versionId required' });
+  store.setCurrentVersion(req.params.id, versionId);
+  res.json({ asset: store.getAsset(req.params.id) });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     apiKey: !!process.env.ANTHROPIC_API_KEY,
-    version: '1.0.0'
+    db: store.health(),
+    version: '1.1.0'
   });
 });
 

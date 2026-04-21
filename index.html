@@ -2808,6 +2808,8 @@ async function startGenerate(){
       if (data.success && data.images) {
         window._generatedImages = data.images;
         window._generatedHTML = data.html;
+        window._currentAssetId = data.assetId || null;
+        window._currentVersionId = data.versionId || null;
       }
     }
 
@@ -3253,6 +3255,241 @@ function removeThumbRef(){
 document.querySelectorAll('.editor-section[data-editor="card-news"]').forEach(s => s.classList.add('active'));
 renderBrandProfiles();
 renderBrandChips();
+
+// ═══════════════════════════════════════════════
+// HISTORY PANEL (Phase 1)
+// ═══════════════════════════════════════════════
+(function initHistoryPanel(){
+  const TYPE_LABEL = {'card-news':'카드뉴스','detail-page':'상세페이지','package':'패키지','thumbnail':'썸네일'};
+
+  const btn = document.createElement('button');
+  btn.id = 'historyBtn';
+  btn.innerHTML = '📚 히스토리';
+  btn.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:9998;padding:12px 18px;border:none;border-radius:999px;background:#111;color:#fff;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;';
+  btn.onclick = openHistory;
+  document.body.appendChild(btn);
+
+  const modal = document.createElement('div');
+  modal.id = 'historyModal';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:min(900px,96vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:18px;font-weight:700;">히스토리</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="histTypeFilter" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+            <option value="">전체</option>
+            <option value="card-news">카드뉴스</option>
+            <option value="detail-page">상세페이지</option>
+            <option value="package">패키지</option>
+            <option value="thumbnail">썸네일</option>
+          </select>
+          <button id="histRefresh" style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">새로고침</button>
+          <button id="histClose" style="padding:6px 12px;border:none;border-radius:8px;background:#111;color:#fff;cursor:pointer;font-size:13px;">닫기</button>
+        </div>
+      </div>
+      <div id="histList" style="overflow-y:auto;padding:16px 20px;flex:1;"></div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#histClose').onclick = ()=> modal.style.display = 'none';
+  modal.querySelector('#histRefresh').onclick = loadHistory;
+  modal.querySelector('#histTypeFilter').onchange = loadHistory;
+  modal.onclick = (e)=>{ if(e.target===modal) modal.style.display='none'; };
+
+  async function openHistory(){
+    modal.style.display = 'flex';
+    await loadHistory();
+  }
+
+  async function loadHistory(){
+    const list = modal.querySelector('#histList');
+    const type = modal.querySelector('#histTypeFilter').value;
+    list.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">불러오는 중…</div>';
+    try {
+      const q = type ? `?type=${encodeURIComponent(type)}` : '';
+      const res = await fetch('/api/assets' + q);
+      const data = await res.json();
+      const assets = data.assets || [];
+      if (!assets.length) {
+        list.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">아직 저장된 작업이 없어요.<br>생성 결과는 자동으로 여기에 저장돼요.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;';
+      assets.forEach(a => {
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e5e5e5;border-radius:12px;overflow:hidden;background:#fafafa;cursor:pointer;transition:transform .1s;';
+        card.onmouseenter = ()=> card.style.transform = 'translateY(-2px)';
+        card.onmouseleave = ()=> card.style.transform = '';
+        const thumb = (a.image_paths && a.image_paths[0]) || '';
+        const date = (a.updated_at || a.created_at || '').slice(0,16).replace('T',' ');
+        card.innerHTML = `
+          <div style="aspect-ratio:1;background:#eee;background-size:cover;background-position:center;${thumb?`background-image:url('${thumb}')`:''}"></div>
+          <div style="padding:10px 12px;">
+            <div style="font-size:12px;color:#666;display:flex;justify-content:space-between;">
+              <span>${TYPE_LABEL[a.type]||a.type}</span>
+              <span>${a.favorite?'⭐':''}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${escapeHtml(a.title || (a.input_content && (a.input_content.title || a.input_content.topic)) || '제목 없음')}
+            </div>
+            <div style="font-size:11px;color:#999;margin-top:4px;">${date}</div>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button data-act="open" style="flex:1;padding:5px 8px;border:none;border-radius:6px;background:#111;color:#fff;font-size:11px;cursor:pointer;">열기</button>
+              <button data-act="fav" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;">${a.favorite?'★':'☆'}</button>
+              <button data-act="del" style="padding:5px 8px;border:1px solid #f0c0c0;border-radius:6px;background:#fff;color:#c33;font-size:11px;cursor:pointer;">삭제</button>
+            </div>
+          </div>`;
+        card.querySelector('[data-act=open]').onclick = (e)=>{ e.stopPropagation(); openAsset(a.id); };
+        card.querySelector('[data-act=fav]').onclick = async (e)=>{
+          e.stopPropagation();
+          await fetch('/api/assets/'+a.id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({favorite:'toggle'}) });
+          loadHistory();
+        };
+        card.querySelector('[data-act=del]').onclick = async (e)=>{
+          e.stopPropagation();
+          if(!confirm('삭제할까요? 되돌릴 수 없어요.')) return;
+          await fetch('/api/assets/'+a.id, { method:'DELETE' });
+          loadHistory();
+        };
+        grid.appendChild(card);
+      });
+      list.appendChild(grid);
+    } catch(e) {
+      list.innerHTML = '<div style="color:#c33;padding:20px;">불러오기 실패: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  async function openAsset(id){
+    try {
+      const res = await fetch('/api/assets/'+id);
+      const data = await res.json();
+      const a = data.asset;
+      if (!a) return alert('에셋을 찾을 수 없어요.');
+      const currentVer = a.versions.find(v => v.id === a.current_version_id) || a.versions[0];
+      window._generatedImages = (currentVer.image_paths||[]).map(url => ({
+        filename: url.split('/').pop(), url,
+        width: 1080, height: 1080
+      }));
+      window._generatedHTML = currentVer.html;
+      window._currentAssetId = a.id;
+      window._currentVersionId = currentVer.id;
+      currentEditorType = a.type;
+      modal.style.display = 'none';
+      if (typeof showResults === 'function') showResults();
+      if (typeof navigate === 'function') navigate('results');
+    } catch(e) {
+      alert('열기 실패: ' + e.message);
+    }
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+})();
+
+// ═══════════════════════════════════════════════
+// INLINE EDITOR (Phase 1) — contenteditable + 버전 저장
+// ═══════════════════════════════════════════════
+(function initInlineEditor(){
+  const btn = document.createElement('button');
+  btn.id = 'editBtn';
+  btn.innerHTML = '✏️ 편집';
+  btn.style.cssText = 'position:fixed;right:20px;bottom:74px;z-index:9998;padding:12px 18px;border:none;border-radius:999px;background:#6366F1;color:#fff;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(99,102,241,.4);cursor:pointer;display:none;';
+  btn.onclick = openEditor;
+  document.body.appendChild(btn);
+
+  // Show/hide edit button based on whether we have an editable HTML loaded
+  setInterval(()=>{
+    btn.style.display = (window._generatedHTML && window._currentAssetId) ? '' : 'none';
+  }, 500);
+
+  const modal = document.createElement('div');
+  modal.id = 'editModal';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:stretch;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;width:100%;max-width:1400px;margin:20px;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:14px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div>
+          <div style="font-size:17px;font-weight:700;">인라인 편집</div>
+          <div style="font-size:12px;color:#888;margin-top:2px;">텍스트를 클릭해서 바로 수정하세요. 저장 시 이미지가 다시 렌더링됩니다.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="editStatus" style="font-size:12px;color:#888;"></span>
+          <button id="editSave" style="padding:8px 16px;border:none;border-radius:8px;background:#10B981;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">💾 저장 (새 버전)</button>
+          <button id="editClose" style="padding:8px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;">닫기</button>
+        </div>
+      </div>
+      <div style="flex:1;background:#f3f4f6;padding:20px;overflow:auto;">
+        <iframe id="editFrame" style="width:100%;min-height:70vh;border:1px solid #ddd;border-radius:8px;background:#fff;"></iframe>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#editClose').onclick = ()=> modal.style.display = 'none';
+  modal.onclick = (e)=>{ if(e.target===modal) modal.style.display='none'; };
+  modal.querySelector('#editSave').onclick = saveEdits;
+
+  function openEditor(){
+    if (!window._generatedHTML) return alert('편집할 HTML이 없어요. 먼저 생성하거나 히스토리에서 열어주세요.');
+    if (!window._currentAssetId) return alert('이 결과는 아직 저장되지 않았어요. (API 키 없이 생성된 로컬 프리뷰는 편집 불가)');
+    modal.style.display = 'flex';
+    const iframe = modal.querySelector('#editFrame');
+    iframe.srcdoc = window._generatedHTML;
+    iframe.onload = ()=>{
+      try {
+        const doc = iframe.contentDocument;
+        // Make text nodes editable
+        doc.body.setAttribute('contenteditable', 'true');
+        doc.body.style.outline = 'none';
+        // Add helper style: hover outline on blocks
+        const style = doc.createElement('style');
+        style.textContent = `
+          [contenteditable] *:hover { outline: 1px dashed #6366F1 !important; outline-offset: 2px; }
+          [contenteditable] *:focus { outline: 2px solid #6366F1 !important; }
+        `;
+        doc.head.appendChild(style);
+        modal.querySelector('#editStatus').textContent = '편집 가능 · 변경사항은 저장 시 반영';
+      } catch(e) {
+        modal.querySelector('#editStatus').textContent = '편집 초기화 실패: ' + e.message;
+      }
+    };
+  }
+
+  async function saveEdits(){
+    const iframe = modal.querySelector('#editFrame');
+    const status = modal.querySelector('#editStatus');
+    const saveBtn = modal.querySelector('#editSave');
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc) throw new Error('iframe 문서를 읽을 수 없어요');
+      doc.body.removeAttribute('contenteditable');
+      const html = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+      saveBtn.disabled = true;
+      saveBtn.textContent = '저장 중…';
+      status.textContent = 'Playwright로 이미지 재생성 중 (5~30초)…';
+      const res = await fetch('/api/assets/' + window._currentAssetId + '/versions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ html, note: '인라인 편집' })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '저장 실패');
+      window._generatedHTML = html;
+      window._currentVersionId = data.versionId;
+      window._generatedImages = data.images.map(img => ({...img, width: 1080, height: 1080}));
+      status.textContent = '✅ 저장 완료 — 새 버전 생성됨';
+      // Restore edit mode
+      doc.body.setAttribute('contenteditable', 'true');
+      if (typeof showResults === 'function') showResults();
+    } catch(e) {
+      status.textContent = '❌ ' + e.message;
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 저장 (새 버전)';
+    }
+  }
+})();
 </script>
 </body>
 </html>

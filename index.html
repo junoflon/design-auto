@@ -3404,83 +3404,154 @@ renderBrandChips();
     btn.style.display = (window._generatedHTML && window._currentAssetId) ? '' : 'none';
   }, 500);
 
+  // Load GrapesJS (HTML visual editor — Figma-like: select/drag/style panel/layers/undo)
+  const gjsCss = document.createElement('link');
+  gjsCss.rel = 'stylesheet';
+  gjsCss.href = 'https://unpkg.com/grapesjs@0.22.4/dist/css/grapes.min.css';
+  document.head.appendChild(gjsCss);
+  const gjsScript = document.createElement('script');
+  gjsScript.src = 'https://unpkg.com/grapesjs@0.22.4/dist/grapes.min.js';
+  document.head.appendChild(gjsScript);
+
   const modal = document.createElement('div');
   modal.id = 'editModal';
-  modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:stretch;justify-content:center;';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;background:#1e1e1e;z-index:9999;flex-direction:column;';
   modal.innerHTML = `
-    <div style="background:#fff;width:100%;max-width:1400px;margin:20px;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
-      <div style="padding:14px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-        <div>
-          <div style="font-size:17px;font-weight:700;">인라인 편집</div>
-          <div style="font-size:12px;color:#888;margin-top:2px;">텍스트를 클릭해서 바로 수정하세요. 저장 시 이미지가 다시 렌더링됩니다.</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <span id="editStatus" style="font-size:12px;color:#888;"></span>
-          <button id="editSave" style="padding:8px 16px;border:none;border-radius:8px;background:#10B981;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">💾 저장 (새 버전)</button>
-          <button id="editClose" style="padding:8px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;">닫기</button>
-        </div>
+    <div style="padding:10px 16px;background:#222;color:#eee;border-bottom:1px solid #000;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="font-size:15px;font-weight:700;">🎨 비주얼 에디터</div>
+        <div style="font-size:11px;color:#999;">클릭해서 선택 · 우측 패널에서 스타일 · 좌측에서 레이어 관리</div>
       </div>
-      <div style="flex:1;background:#f3f4f6;padding:20px;overflow:auto;">
-        <iframe id="editFrame" style="width:100%;min-height:70vh;border:1px solid #ddd;border-radius:8px;background:#fff;"></iframe>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="editStatus" style="font-size:11px;color:#bbb;"></span>
+        <button id="editUndo" title="Undo (Ctrl+Z)" style="padding:6px 10px;border:1px solid #555;border-radius:6px;background:#333;color:#eee;font-size:12px;cursor:pointer;">↶</button>
+        <button id="editRedo" title="Redo (Ctrl+Shift+Z)" style="padding:6px 10px;border:1px solid #555;border-radius:6px;background:#333;color:#eee;font-size:12px;cursor:pointer;">↷</button>
+        <button id="editPreview" style="padding:6px 12px;border:1px solid #555;border-radius:6px;background:#333;color:#eee;font-size:12px;cursor:pointer;">👁 미리보기</button>
+        <button id="editSave" style="padding:8px 16px;border:none;border-radius:6px;background:#10B981;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">💾 저장 (새 버전)</button>
+        <button id="editClose" style="padding:8px 12px;border:1px solid #555;border-radius:6px;background:#333;color:#eee;font-size:12px;cursor:pointer;">닫기</button>
       </div>
-    </div>`;
+    </div>
+    <div id="gjsRoot" style="flex:1;min-height:0;"></div>`;
   document.body.appendChild(modal);
 
+  let gjs = null;
+
   modal.querySelector('#editClose').onclick = ()=> modal.style.display = 'none';
-  modal.onclick = (e)=>{ if(e.target===modal) modal.style.display='none'; };
+  modal.querySelector('#editUndo').onclick = ()=> gjs && gjs.UndoManager.undo();
+  modal.querySelector('#editRedo').onclick = ()=> gjs && gjs.UndoManager.redo();
+  modal.querySelector('#editPreview').onclick = ()=> gjs && gjs.runCommand('preview');
   modal.querySelector('#editSave').onclick = saveEdits;
+
+  function waitForGrapes(cb, tries=50){
+    if (window.grapesjs) return cb();
+    if (tries <= 0) return alert('에디터 로딩 실패 — 네트워크 확인');
+    setTimeout(()=> waitForGrapes(cb, tries-1), 100);
+  }
+
+  function splitHtml(fullHtml){
+    // Split into head extras (style/link/script) + body inner
+    const doc = new DOMParser().parseFromString(fullHtml, 'text/html');
+    const bodyInner = doc.body ? doc.body.innerHTML : fullHtml;
+    const styles = [];
+    doc.head && doc.head.querySelectorAll('style').forEach(s => styles.push(s.textContent));
+    // Tailwind CDN / Google Fonts links
+    const headExtras = [];
+    doc.head && doc.head.querySelectorAll('link,script').forEach(el => headExtras.push(el.outerHTML));
+    return { bodyInner, css: styles.join('\n'), headExtras: headExtras.join('\n') };
+  }
 
   function openEditor(){
     if (!window._generatedHTML) return alert('편집할 HTML이 없어요. 먼저 생성하거나 히스토리에서 열어주세요.');
     if (!window._currentAssetId) return alert('이 결과는 아직 저장되지 않았어요. (API 키 없이 생성된 로컬 프리뷰는 편집 불가)');
     modal.style.display = 'flex';
-    const iframe = modal.querySelector('#editFrame');
-    iframe.srcdoc = window._generatedHTML;
-    iframe.onload = ()=>{
-      try {
-        const doc = iframe.contentDocument;
-        // Make text nodes editable
-        doc.body.setAttribute('contenteditable', 'true');
-        doc.body.style.outline = 'none';
-        // Add helper style: hover outline on blocks
-        const style = doc.createElement('style');
-        style.textContent = `
-          [contenteditable] *:hover { outline: 1px dashed #6366F1 !important; outline-offset: 2px; }
-          [contenteditable] *:focus { outline: 2px solid #6366F1 !important; }
-        `;
-        doc.head.appendChild(style);
-        modal.querySelector('#editStatus').textContent = '편집 가능 · 변경사항은 저장 시 반영';
-      } catch(e) {
-        modal.querySelector('#editStatus').textContent = '편집 초기화 실패: ' + e.message;
+
+    waitForGrapes(()=>{
+      if (gjs) { gjs.destroy(); gjs = null; document.getElementById('gjsRoot').innerHTML = ''; }
+
+      const { bodyInner, css, headExtras } = splitHtml(window._generatedHTML);
+
+      gjs = window.grapesjs.init({
+        container: '#gjsRoot',
+        height: '100%',
+        width: 'auto',
+        storageManager: false,
+        fromElement: false,
+        canvas: {
+          styles: [],
+          scripts: ['https://cdn.tailwindcss.com']
+        },
+        panels: { defaults: [] },
+        deviceManager: {
+          devices: [
+            { id: 'desktop', name: 'Desktop', width: '' },
+            { id: 'tablet', name: 'Tablet', width: '768px' },
+            { id: 'mobile', name: 'Mobile', width: '375px' }
+          ]
+        },
+        styleManager: {
+          sectors: [
+            { name: '레이아웃', properties: ['display','position','top','right','bottom','left','width','height','max-width','min-height','padding','margin'] },
+            { name: '타이포그래피', properties: ['font-family','font-size','font-weight','line-height','letter-spacing','color','text-align','text-decoration','text-shadow'] },
+            { name: '배경', properties: ['background-color','background-image','background-size','background-position','background-repeat'] },
+            { name: '테두리·그림자', properties: ['border','border-radius','box-shadow','opacity'] },
+            { name: 'Flex', properties: ['flex-direction','justify-content','align-items','gap','flex-wrap'] }
+          ]
+        }
+      });
+
+      // Inject fonts/tailwind into canvas head
+      if (headExtras) {
+        gjs.on('canvas:frame:load', ({ window: iw }) => {
+          try {
+            const head = iw.document.head;
+            const wrap = iw.document.createElement('div');
+            wrap.innerHTML = headExtras;
+            Array.from(wrap.children).forEach(el => head.appendChild(el.cloneNode(true)));
+          } catch(e){}
+        });
       }
-    };
+
+      gjs.setComponents(bodyInner);
+      if (css) gjs.setStyle(css);
+
+      modal.querySelector('#editStatus').textContent = '편집 가능 — 텍스트 더블클릭, 요소 드래그, 우측 스타일 패널';
+    });
   }
 
   async function saveEdits(){
-    const iframe = modal.querySelector('#editFrame');
+    if (!gjs) return;
     const status = modal.querySelector('#editStatus');
     const saveBtn = modal.querySelector('#editSave');
     try {
-      const doc = iframe.contentDocument;
-      if (!doc) throw new Error('iframe 문서를 읽을 수 없어요');
-      doc.body.removeAttribute('contenteditable');
-      const html = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+      const bodyHtml = gjs.getHtml();
+      const cssOut = gjs.getCss();
+      // Preserve original head scripts/links from the source
+      const { headExtras } = splitHtml(window._generatedHTML);
+      const fullHtml = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+${headExtras}
+<style>${cssOut}</style>
+</head>
+<body>${bodyHtml}</body>
+</html>`;
+
       saveBtn.disabled = true;
       saveBtn.textContent = '저장 중…';
       status.textContent = 'Playwright로 이미지 재생성 중 (5~30초)…';
       const res = await fetch('/api/assets/' + window._currentAssetId + '/versions', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ html, note: '인라인 편집' })
+        body: JSON.stringify({ html: fullHtml, note: '비주얼 에디터' })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '저장 실패');
-      window._generatedHTML = html;
+      window._generatedHTML = fullHtml;
       window._currentVersionId = data.versionId;
       window._generatedImages = data.images.map(img => ({...img, width: 1080, height: 1080}));
       status.textContent = '✅ 저장 완료 — 새 버전 생성됨';
-      // Restore edit mode
-      doc.body.setAttribute('contenteditable', 'true');
       if (typeof showResults === 'function') showResults();
     } catch(e) {
       status.textContent = '❌ ' + e.message;

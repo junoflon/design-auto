@@ -1,5 +1,6 @@
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk').default;
+const OpenAI = require('openai').default;
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
@@ -17,6 +18,11 @@ const PORT = process.env.PORT || 8080;
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
+
+// OpenAI client (for gpt-image-1)
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // Ensure output directories exist
 const outputDir = path.join(__dirname, 'output');
@@ -88,10 +94,40 @@ const DESIGN_SYSTEM_PROMPT = `당신은 연봉 1.5억의 시니어 디자이너�
     - 주어진 너비(예: 860px)에 최적화된 디자인. 반응형은 안 해도 됨
     - 단, 텍스트 가독성은 최우선
 
+# AI 이미지 생성 (중요)
+"실제 사진/일러스트가 있어야 와닿는 부분"에는 placeholder를 삽입한다. 서버가 자동으로 GPT Image로 생성해서 교체한다.
+
+사용 형식:
+<img data-ai-gen="true"
+     data-prompt="구체적이고 시각적인 영문 프롬프트. 스타일/조명/구도 명시"
+     data-aspect="16:9"  (또는 1:1, 4:3, 3:4, 9:16)
+     class="w-full h-auto" />
+
+이미지를 써야 하는 경우:
+- Hero 섹션 메인 비주얼 (필수)
+- 제품 클로즈업, 텍스처/디테일 샷
+- 사용 장면 (손 동작, 라이프스타일)
+- Before/After 비교
+- 후기 카드의 인물 일러스트 (실사 X)
+
+이미지를 쓰지 말아야 하는 경우 (코드/SVG로):
+- UI 아이콘 (Lucide, Heroicons 사용)
+- 차트/그래프, 비교표
+- 로고, 텍스트 배지, 숫자 강조
+- 단순 배경 패턴 (CSS gradient/SVG로)
+
+프롬프트 작성 팁 (반드시 지킬 것):
+- 영어로 작성 (한국어보다 정확함)
+- 텍스트는 절대 이미지 안에 넣지 마 ("text in image" 금지)
+- 스타일 명시: "minimal studio photography", "soft natural light", "editorial composition"
+- 색감 톤 명시: "warm beige tones", "cool desaturated palette"
+- 페이지당 이미지 3~6개 권장 (너무 많으면 비용)
+
 # 출력 형식
 - 완성된 단일 HTML 파일만 출력 (설명 텍스트 없이)
 - <!DOCTYPE html>로 시작, </html>로 끝
-- 외부 이미지 URL 금지 (그라디언트 / SVG / 이모지로 대체하되, 클리셰 이모지는 피할 것)
+- 이미지가 필요한 곳: 위 <img data-ai-gen> placeholder 사용
+- 그 외 비주얼: SVG / CSS gradient / 이모지 (클리셰 이모지 피할 것)
 - Tailwind CDN + Pretendard CDN + 인라인 <style> 자유 활용
 - HTML 길이 제한 없음. 디테일이 부족한 것보다 길어도 됨.`;
 
@@ -115,14 +151,18 @@ app.post('/api/generate', async (req, res) => {
     const prompt = buildPrompt(type, content, brand, preset, options);
     console.log(`[generate] type=${type}, preset=${preset}, assetId=${assetId}`);
 
-    const { html: htmlCode, usage } = await generateHtmlWithRetry(prompt);
-    if (!htmlCode) {
+    const { html: rawHtml, usage } = await generateHtmlWithRetry(prompt);
+    if (!rawHtml) {
       return res.status(500).json({ error: 'HTML 코드 생성 실패 (재시도 포함)' });
     }
 
     const dimensions = getDimensions(type, options);
     const assetOutDir = path.join(outputDir, type, `${assetId}_${versionId}`);
     fs.mkdirSync(assetOutDir, { recursive: true });
+
+    // Inject AI-generated images into placeholders (best-effort, non-blocking on failure)
+    const htmlCode = await injectAIImages(rawHtml, assetOutDir, `/output/${type}/${assetId}_${versionId}`);
+
     const images = await captureHTML(htmlCode, dimensions, type, options, assetOutDir);
 
     const imagePaths = images.map(img => `/output/${type}/${assetId}_${versionId}/${img.filename}`);
@@ -408,6 +448,98 @@ ${baseRules}`;
 }
 
 // ═══════════════════════════════════════════════
+// AI Image Injection (gpt-image-1)
+// ═══════════════════════════════════════════════
+const ASPECT_TO_SIZE = {
+  '1:1': '1024x1024',
+  '16:9': '1536x1024',
+  '4:3': '1536x1024',
+  '3:4': '1024x1536',
+  '9:16': '1024x1536',
+  '21:9': '1536x1024'
+};
+
+function parsePlaceholders(html) {
+  // Match <img ...data-ai-gen...> tags (self-closing or with closing slash)
+  const re = /<img\b[^>]*\bdata-ai-gen\s*=\s*["']?(?:true|1)?["']?[^>]*\/?>/gi;
+  const matches = [];
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const tag = m[0];
+    const promptMatch = tag.match(/data-prompt\s*=\s*["']([^"']+)["']/i);
+    const aspectMatch = tag.match(/data-aspect\s*=\s*["']([^"']+)["']/i);
+    if (promptMatch) {
+      matches.push({
+        tag,
+        index: m.index,
+        prompt: promptMatch[1],
+        aspect: aspectMatch ? aspectMatch[1] : '1:1'
+      });
+    }
+  }
+  return matches;
+}
+
+async function generateOneImage({ prompt, aspect }, outDir, urlPrefix, idx) {
+  const size = ASPECT_TO_SIZE[aspect] || '1024x1024';
+  const filename = `ai-img-${String(idx + 1).padStart(2, '0')}.png`;
+  const filepath = path.join(outDir, filename);
+
+  const result = await openai.images.generate({
+    model: 'gpt-image-1',
+    prompt,
+    size,
+    quality: 'medium',
+    n: 1
+  });
+
+  const b64 = result.data[0].b64_json;
+  fs.writeFileSync(filepath, Buffer.from(b64, 'base64'));
+  return `${urlPrefix}/${filename}`;
+}
+
+async function injectAIImages(html, outDir, urlPrefix) {
+  const placeholders = parsePlaceholders(html);
+  if (!placeholders.length) return html;
+
+  if (!openai) {
+    console.warn('[ai-img] OPENAI_API_KEY not set, leaving placeholders empty');
+    // Replace placeholders with neutral gradient div as fallback
+    return placeholders.reduce((acc, p) => {
+      const fallback = `<div style="width:100%;aspect-ratio:${p.aspect.replace(':', '/')};background:linear-gradient(135deg,#f4f1ea,#e8e2d5);border-radius:12px;"></div>`;
+      return acc.replace(p.tag, fallback);
+    }, html);
+  }
+
+  console.log(`[ai-img] generating ${placeholders.length} images...`);
+  const results = await Promise.allSettled(
+    placeholders.map((p, i) => generateOneImage(p, outDir, urlPrefix, i))
+  );
+
+  let out = html;
+  results.forEach((r, i) => {
+    const p = placeholders[i];
+    if (r.status === 'fulfilled') {
+      // Build new img tag preserving class etc, swap placeholder attrs for src
+      const classMatch = p.tag.match(/\bclass\s*=\s*["']([^"']*)["']/i);
+      const styleMatch = p.tag.match(/\bstyle\s*=\s*["']([^"']*)["']/i);
+      const altMatch = p.tag.match(/\balt\s*=\s*["']([^"']*)["']/i);
+      const cls = classMatch ? ` class="${classMatch[1]}"` : '';
+      const style = styleMatch ? ` style="${styleMatch[1]}"` : '';
+      const alt = altMatch ? ` alt="${altMatch[1]}"` : ' alt=""';
+      out = out.replace(p.tag, `<img src="${r.value}"${alt}${cls}${style} />`);
+      console.log(`[ai-img] ${i + 1}/${placeholders.length} ok`);
+    } else {
+      const fallback = `<div style="width:100%;aspect-ratio:${p.aspect.replace(':', '/')};background:linear-gradient(135deg,#f4f1ea,#e8e2d5);border-radius:12px;"></div>`;
+      out = out.replace(p.tag, fallback);
+      console.warn(`[ai-img] ${i + 1}/${placeholders.length} failed: ${r.reason?.message || r.reason}`);
+    }
+  });
+
+  return out;
+}
+
+// ═══════════════════════════════════════════════
 // HTML Extractor
 // ═══════════════════════════════════════════════
 function extractHTML(text) {
@@ -621,8 +753,9 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     apiKey: !!process.env.ANTHROPIC_API_KEY,
+    openaiKey: !!process.env.OPENAI_API_KEY,
     db: store.health(),
-    version: '1.1.0'
+    version: '1.2.0'
   });
 });
 
@@ -631,5 +764,5 @@ app.get('/api/health', (req, res) => {
 // ═══════════════════════════════════════════════
 app.listen(PORT, () => {
   console.log(`Design Auto server running on port ${PORT}`);
-  console.log(`API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ configured' : '❌ missing (set ANTHROPIC_API_KEY)'}`);
+  console.log(`Anthropic: ${process.env.ANTHROPIC_API_KEY ? '✅' : '❌'}  OpenAI: ${process.env.OPENAI_API_KEY ? '✅' : '⚠️  (optional, AI images disabled)'}`);
 });

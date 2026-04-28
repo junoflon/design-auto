@@ -1323,6 +1323,43 @@
                 <div class="tone-chip">프로페셔널</div>
               </div>
             </div>
+
+            <div class="brand-card">
+              <div class="bc-label">업종 / 카테고리</div>
+              <div class="tone-options" id="industryOptions">
+                <div class="tone-chip selected">뷰티/코스메틱</div>
+                <div class="tone-chip">헬스/건강기능식품</div>
+                <div class="tone-chip">식품/F&B</div>
+                <div class="tone-chip">패션/잡화</div>
+                <div class="tone-chip">IT/SaaS</div>
+                <div class="tone-chip">교육</div>
+                <div class="tone-chip">리빙/홈</div>
+                <div class="tone-chip">기타</div>
+              </div>
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">이미지 무드 (AI 이미지 생성에 반영)</div>
+              <div class="tone-options" id="imageMoodOptions">
+                <div class="tone-chip selected">미니멀 스튜디오</div>
+                <div class="tone-chip">따뜻한 라이프스타일</div>
+                <div class="tone-chip">에디토리얼 매거진</div>
+                <div class="tone-chip">자연광 내추럴</div>
+                <div class="tone-chip">팝/비비드 컬러풀</div>
+                <div class="tone-chip">럭셔리 시네마틱</div>
+                <div class="tone-chip">테크 미래적</div>
+              </div>
+            </div>
+
+            <div class="brand-card">
+              <div class="bc-label">가격대 / 포지셔닝</div>
+              <div class="tone-options" id="priceTierOptions">
+                <div class="tone-chip">가성비/대중형</div>
+                <div class="tone-chip selected">중가/메인스트림</div>
+                <div class="tone-chip">프리미엄</div>
+                <div class="tone-chip">럭셔리/하이엔드</div>
+              </div>
+            </div>
           </div>
 
           <div class="brand-save-row">
@@ -2135,8 +2172,8 @@ let selectedBrandIndex = 0;
 // BRANDS DATA
 // ═══════════════════════════════════════════════
 let brands = [
-  { name: 'Demo Brand', color: '#FF6B35', subColor: '#FFB088', font: '모던/깔끔', tone: '친근한 반말' },
-  { name: 'Fresh Juice', color: '#22C55E', subColor: '#A7F3D0', font: '따뜻한/손글씨풍', tone: '유쾌한' }
+  { name: 'Demo Brand', color: '#FF6B35', subColor: '#FFB088', font: '모던/깔끔', tone: '친근한 반말', industry: '뷰티/코스메틱', imageMood: '미니멀 스튜디오', priceTier: '중가/메인스트림' },
+  { name: 'Fresh Juice', color: '#22C55E', subColor: '#A7F3D0', font: '따뜻한/손글씨풍', tone: '유쾌한', industry: '식품/F&B', imageMood: '자연광 내추럴', priceTier: '중가/메인스트림' }
 ];
 let editingBrandIndex = 0;
 
@@ -2188,6 +2225,18 @@ function editBrand(idx) {
   document.querySelectorAll('#toneOptions .tone-chip').forEach(c => {
     c.classList.toggle('selected', c.textContent === b.tone);
   });
+  // select industry
+  document.querySelectorAll('#industryOptions .tone-chip').forEach(c => {
+    c.classList.toggle('selected', c.textContent === (b.industry || '뷰티/코스메틱'));
+  });
+  // select image mood
+  document.querySelectorAll('#imageMoodOptions .tone-chip').forEach(c => {
+    c.classList.toggle('selected', c.textContent === (b.imageMood || '미니멀 스튜디오'));
+  });
+  // select price tier
+  document.querySelectorAll('#priceTierOptions .tone-chip').forEach(c => {
+    c.classList.toggle('selected', c.textContent === (b.priceTier || '중가/메인스트림'));
+  });
   renderBrandProfiles();
 }
 
@@ -2201,7 +2250,7 @@ function deleteBrand(idx) {
 }
 
 function addNewBrand() {
-  const newBrand = { name: '새 브랜드', color: '#6366F1', subColor: '#C7D2FE', font: '모던/깔끔', tone: '격식체' };
+  const newBrand = { name: '새 브랜드', color: '#6366F1', subColor: '#C7D2FE', font: '모던/깔끔', tone: '격식체', industry: '뷰티/코스메틱', imageMood: '미니멀 스튜디오', priceTier: '중가/메인스트림' };
   brands.push(newBrand);
   editBrand(brands.length - 1);
   renderBrandChips();
@@ -3025,12 +3074,18 @@ function saveBrand(){
   const color = document.getElementById('colorInput').value || '#FF6B35';
   const fontChip = document.querySelector('#fontStyleOptions .tone-chip.selected');
   const toneChip = document.querySelector('#toneOptions .tone-chip.selected');
+  const industryChip = document.querySelector('#industryOptions .tone-chip.selected');
+  const moodChip = document.querySelector('#imageMoodOptions .tone-chip.selected');
+  const tierChip = document.querySelector('#priceTierOptions .tone-chip.selected');
   brands[editingBrandIndex] = {
     name: name,
     color: color,
     subColor: brands[editingBrandIndex]?.subColor || '#FFB088',
     font: fontChip ? fontChip.textContent : '모던/깔끔',
-    tone: toneChip ? toneChip.textContent : '친근한 반말'
+    tone: toneChip ? toneChip.textContent : '친근한 반말',
+    industry: industryChip ? industryChip.textContent : '뷰티/코스메틱',
+    imageMood: moodChip ? moodChip.textContent : '미니멀 스튜디오',
+    priceTier: tierChip ? tierChip.textContent : '중가/메인스트림'
   };
   renderBrandProfiles();
   renderBrandChips();
